@@ -73,6 +73,16 @@ design / traceability など) は `aidlc/spaces/default/` 配下に Evidence と
 > 詳細な RC2 Motivation / redesign history は、後続の `docs/rc2-baseline-audit` の
 > Pull Request で追加します。
 
+## Development Status
+
+Current public baseline: `v0.1.0-pre-rc2`
+
+構造化された learning-content audit により、learning depth / mode differentiation /
+feedback / results / navigation の各領域に次の改善点があることが分かりました。
+詳細は [`docs/rc2-baseline-audit.md`](docs/rc2-baseline-audit.md) を参照してください。
+
+RC2 redesign は計画済みですが、まだ実装していません。
+
 ## License
 
 [MIT-0 (MIT No Attribution)](LICENSE) — Community から再利用しやすい OSS 成果物として公開しています。
