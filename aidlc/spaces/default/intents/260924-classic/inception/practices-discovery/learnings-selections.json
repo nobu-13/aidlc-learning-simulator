@@ -1,0 +1,35 @@
+{
+  "stage_slug": "practices-discovery",
+  "space": "default",
+  "intent": "260924-classic",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "source_heading": "Tradeoffs",
+      "scope": "project",
+      "heading": "## Testing Posture",
+      "text": "主要ロジックは test-after を基本とする（TDD/BDD を一律に義務づけない）。仕様先行を義務づける明示ルールが無く、決定的 scoring と主要ロジックの unit test を担保できれば org 既定に沿う。ただし決定的な core ロジックはテスト先行または同時に書く。"
+    },
+    {
+      "candidate_id": "c2",
+      "source_heading": "Tradeoffs",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "静的 SPA で backend も外部依存も無い場合、walking-skeleton の ceremony は省略し、代わりにデータ/ロジック分離を検証する薄い end-to-end の縦切り（例: Scenario JSON分離 → 1 件完走 → 結果表示）を最初に通す実装順序を採る。"
+    },
+    {
+      "candidate_id": "c3",
+      "source_heading": "Tradeoffs",
+      "scope": "project",
+      "heading": "## Deployment",
+      "text": "Application は静的 SPA であり backend 前提の複雑な本番承認フローは採用しない。ただし Hackathon 期間中の Official Live Application は AWS CloudFront + S3 であり、AWS への Deployment / Release は AI-DLC の工程完了承認とは分離して人間が判断する。審査終了後に GitHub Pages へ移行した場合は Hosting 形態に応じて Release 手順を簡素化できるが、Hosting 先が変わっても未承認の Deployment を正当化するルールにはしない。"
+    },
+    {
+      "candidate_id": "user_addition",
+      "source_heading": "Deviations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "practices は Hard Constraint（discovered-rules の ALWAYS/NEVER）と Working Practice（team-practices）を明確に分離する。変更可能な開発手法を ALWAYS/NEVER へ過剰に固定しない。"
+    }
+  ]
+}

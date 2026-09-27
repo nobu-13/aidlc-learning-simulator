@@ -1,0 +1,28 @@
+{
+  "stage_slug": "refined-mockups",
+  "space": "default",
+  "intent": "260924-classic",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "rough-mockups を skip する scope では、存在しない wireframes / user-flow を推測で補完せず、承認済み User Stories / Requirements から直接 Refined Mockups を設計する。"
+    },
+    {
+      "candidate_id": "c2",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "Scenario 進行は縦 1 カラム progressive disclosure を基本とし、Focus 個別も同一 Scenario Shell を再利用する。Responsive では DOM order = reading order を維持し、boundary / approval gate は色だけでなく Label / Icon / Shape / Position でも区別する。"
+    },
+    {
+      "candidate_id": "user_addition",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "UI 表現を要求する Acceptance Criteria は、mockup の注釈だけでなく実際の画面構造へ落とし込む。主要 Learning Concept について「別ラベル」「専用スロット」「別ステップ」「視覚的区別」等が要求されている場合、その surface が wireframe 上で確認できる状態にする。"
+    }
+  ]
+}

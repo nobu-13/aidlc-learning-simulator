@@ -1,0 +1,28 @@
+{
+  "stage_slug": "requirements-analysis",
+  "space": "default",
+  "intent": "260924-classic",
+  "selections": [
+    {
+      "candidate_id": "c3",
+      "source_heading": "Deviations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "対象仕様（AI-DLC）の新版がリリースされた場合、承認済み Requirements へ strict Change Control で再入し、Learning Target / Reference Baseline（教材の一次情報基準）と Development Workflow Runtime（本開発の実行環境）を明示的に分離して管理する。active workflow 中に project runtime を新版へ自動 refresh しない。将来の version 更新にも再利用する。"
+    },
+    {
+      "candidate_id": "c4",
+      "source_heading": "Deviations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "対象仕様の version 差分をモデル知識で断定せず、公式 Release Notes / docs / source を一次情報として影響分析する。一次情報に書かれていない意味・動作は推測で補完しない（provenance ルールに整合）。将来の version 更新にも再利用する。"
+    },
+    {
+      "candidate_id": "user_addition",
+      "source_heading": "Deviations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "対象仕様の新版で追加・変更された内容でも、harness/runtime 固有の実装挙動（Kiro IDE delegation 等）を自動的に主要 Learning Concept へ昇格させない。Simulator で教える AI-DLC の概念と実行環境固有の挙動を分離し、教材化する内容は Learning Objective との関係を確認して選別する。将来の version 更新にも再利用する project-specific guidance。"
+    }
+  ]
+}

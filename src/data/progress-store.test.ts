@@ -1,0 +1,98 @@
+import { describe, it, expect } from "vitest";
+import {
+  ProgressStore,
+  emptyProgress,
+  PERSISTENCE_SCHEMA_VERSION,
+  type PersistedProgress,
+  type StoragePort,
+} from "./progress-store.ts";
+
+const KEY = "aidlc-learning-simulator/progress/v1";
+
+function fakeStorage(initial?: Record<string, string>): StoragePort & { data: Record<string, string> } {
+  const data: Record<string, string> = { ...(initial ?? {}) };
+  return {
+    data,
+    getItem: (k) => (k in data ? data[k]! : null),
+    setItem: (k, v) => {
+      data[k] = v;
+    },
+    removeItem: (k) => {
+      delete data[k];
+    },
+  };
+}
+
+function sampleProgress(): PersistedProgress {
+  return {
+    persistenceSchemaVersion: PERSISTENCE_SCHEMA_VERSION,
+    locale: "ja",
+    sessions: [{ sessionId: "sess-1", scenarioId: "s1", status: "in-progress", decisionRecordIds: ["dr-1"] }],
+    decisionRecords: [
+      { decisionRecordId: "dr-1", sessionId: "sess-1", decisionPointId: "dp1", chosenDecisionOptionId: "o1", orderIndex: 0 },
+    ],
+    completedScenarioIds: [],
+    adoptionMemos: [],
+  };
+}
+
+describe("ProgressStore", () => {
+  it("空状態を返す（未保存時）", () => {
+    const store = new ProgressStore(fakeStorage());
+    const { progress, recovered } = store.load("en");
+    expect(recovered).toBeNull();
+    expect(progress).toEqual(emptyProgress("en"));
+  });
+
+  it("save→load の round-trip が stable-ID を保つ（BR6.1）", () => {
+    const s = fakeStorage();
+    const store = new ProgressStore(s);
+    store.save(sampleProgress());
+    const { progress, recovered } = store.load("en");
+    expect(recovered).toBeNull();
+    expect(progress.sessions[0]?.sessionId).toBe("sess-1");
+    expect(progress.decisionRecords[0]?.chosenDecisionOptionId).toBe("o1");
+  });
+
+  it("破損 JSON は PersistenceError を漏らさず safe reset する（BR6.3）", () => {
+    const store = new ProgressStore(fakeStorage({ [KEY]: "{not valid json" }));
+    const { progress, recovered } = store.load("ja");
+    expect(recovered).toBe("corrupt");
+    expect(progress).toEqual(emptyProgress("ja"));
+  });
+
+  it("型不一致（破損 object）も safe reset する（BR6.3）", () => {
+    const store = new ProgressStore(fakeStorage({ [KEY]: JSON.stringify({ persistenceSchemaVersion: 1, locale: "ja", sessions: "oops" }) }));
+    const { progress, recovered } = store.load("ja");
+    expect(recovered).toBe("corrupt");
+    expect(progress.sessions).toHaveLength(0);
+  });
+
+  it("非互換 persistenceSchemaVersion は silent coercion せず safe reset する（BR6.2）", () => {
+    const store = new ProgressStore(
+      fakeStorage({
+        [KEY]: JSON.stringify({
+          persistenceSchemaVersion: 999,
+          locale: "ja",
+          sessions: [],
+          decisionRecords: [],
+          completedScenarioIds: [],
+          adoptionMemos: [],
+        }),
+      }),
+    );
+    const { progress, recovered } = store.load("ja");
+    expect(recovered).toBe("incompatible");
+    expect(progress).toEqual(emptyProgress("ja"));
+  });
+
+  it("userReset は localStorage をクリアする（NFR7.5a）", () => {
+    const s = fakeStorage();
+    const store = new ProgressStore(s);
+    store.save(sampleProgress());
+    expect(s.data[KEY]).toBeDefined();
+    store.userReset();
+    expect(s.data[KEY]).toBeUndefined();
+    expect(store.load("ja").progress).toEqual(emptyProgress("ja"));
+  });
+});

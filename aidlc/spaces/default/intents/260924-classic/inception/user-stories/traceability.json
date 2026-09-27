@@ -1,0 +1,31 @@
+{
+  "stage": "user-stories",
+  "note": "coverage_type: direct | supporting | nfr-crosscutting | deferred | gap. coverage の存在は Verification/Validation 済みを意味しない（Traceability != Verification）。upstream は v2.10.0 で再承認された requirements.md の全 FR/NFR。",
+  "upstream_ids": [
+    "FR1", "FR2", "FR3", "FR4", "FR5", "FR6", "FR7", "FR8", "FR9", "FR10", "FR11", "FR12",
+    "NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9"
+  ],
+  "coverage": [
+    { "id": "FR1", "status": "OK", "coverage_type": "direct", "target": "US2.1, US2.2, US5.1", "note": "二層構造: Core End-to-End (US2.x) と Focus Library (US5.x)" },
+    { "id": "FR2", "status": "OK", "coverage_type": "direct", "target": "US2.1, US2.4, US2.5, US5.2, US5.3", "note": "学習対象コンセプト。FR2.2.1->US2.4, FR2.2.2->US5.2, FR2.2.3->US5.3; FR2.3(harness区別)は横断扱い(US7.3)で supporting" },
+    { "id": "FR3", "status": "OK", "coverage_type": "direct", "target": "US1.2, US2.6, US8.1", "note": "同一 Engine/Data は US1.2/US2.6(AC2.6.2), データ駆動追加は US8.1" },
+    { "id": "FR4", "status": "OK", "coverage_type": "direct", "target": "US2.2, US2.3, US2.6", "note": "Decision 操作モデルと手戻り。US2.6(AC2.6.3) は User 自身の Decision" },
+    { "id": "FR5", "status": "OK", "coverage_type": "direct", "target": "US2.2, US2.6, US3.1, US3.2, US7.4", "note": "評価モデル。FR5.4 の決定性契約は US7.4 で direct。US2.6(AC2.6.5) は同一評価モデル/モードで評価ロジック非変更" },
+    { "id": "FR6", "status": "OK", "coverage_type": "direct", "target": "US2.1, US2.2, US2.4, US3.1, US7.3", "note": "provenance。FR6.6/6.7 重要 Decision Point は US2.2/US2.4, FR6.8 harness 区別は US7.3" },
+    { "id": "FR7", "status": "OK", "coverage_type": "direct", "target": "US3.1, US2.3", "note": "結果画面" },
+    { "id": "FR8", "status": "OK", "coverage_type": "direct", "target": "US4.1", "note": "Adoption Discussion Sheet" },
+    { "id": "FR9", "status": "OK", "coverage_type": "direct", "target": "US1.2, US2.1, US2.6, US6.1", "note": "3 学習モード。Guided->US2.1（Context 提示）, Simulation->US2.6（自力判断の Practice）, Adoption Review->US6.1。US1.2 はモード選択・遷移" },
+    { "id": "FR10", "status": "OK", "coverage_type": "direct", "target": "US1.1, US7.4", "note": "i18n。FR10.4（日英で Decision Outcome 不変）は US7.4 の AC7.4.3 で決定性契約として direct にカバー" },
+    { "id": "FR11", "status": "OK", "coverage_type": "direct", "target": "US7.2", "note": "localStorage 永続化" },
+    { "id": "FR12", "status": "OK", "coverage_type": "direct", "target": "US8.2", "note": "不正 Scenario JSON の可視挙動" },
+    { "id": "NFR1", "status": "OK", "coverage_type": "supporting", "target": "US2.1, US2.2, US2.4, US2.5, US2.6, US3.1, US4.1, US6.1", "note": "Educational Effectiveness。Early User Test 項目 (a)-(f) は学習 Story の Learning Outcome/AC に分散して紐付け（US2.6 は (c) に対応）。定性目標で単一 Story では検証しない。Traceability != Verification" },
+    { "id": "NFR2", "status": "OK", "coverage_type": "nfr-crosscutting", "target": "US7.4, US2.2", "note": "Determinism。US7.4 で横断的に、US2.2 の AC でも局所的に検証" },
+    { "id": "NFR3", "status": "OK", "coverage_type": "nfr-crosscutting", "target": "US7.3, US2.2, US2.4, US4.1", "note": "Technical Accuracy/Traceability。4 区分識別は US7.3 で横断、各学習 Story の provenance AC でも適用" },
+    { "id": "NFR4", "status": "OK", "coverage_type": "nfr-crosscutting", "target": "US7.1", "note": "Accessibility (keyboard 完走・WCAG 2.2 AA 目標)。全 UI Story へ横断適用、US7.1 で代表検証" },
+    { "id": "NFR5", "status": "OK", "coverage_type": "supporting", "target": "US8.1, US8.2", "note": "Maintainability/Data-driven。保守者 Story で担保" },
+    { "id": "NFR6", "status": "Deferred", "coverage_type": "deferred", "target": "infrastructure-design", "note": "Portability/Static hosting（同一 Source で AWS/Pages 配信）は Design/Infra で具体化。User Story では扱わない" },
+    { "id": "NFR7", "status": "Deferred", "coverage_type": "deferred", "target": "infrastructure-design", "note": "Security(proportionate)。CI/依存/権限は Design/Infra・CI Pipeline で具体化" },
+    { "id": "NFR8", "status": "OK", "coverage_type": "nfr-crosscutting", "target": "US3.1, US7.3", "note": "Honesty of claims。教育値/実測値の区別を US3.1/US7.3 で横断適用" },
+    { "id": "NFR9", "status": "Deferred", "coverage_type": "deferred", "target": "nfr-design", "note": "Performance しきい値は design で確定（R-03/NFR9 の方針）。User Story では扱わない" }
+  ]
+}

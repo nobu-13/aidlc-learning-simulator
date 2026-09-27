@@ -1,0 +1,21 @@
+{
+  "stage_slug": "user-stories",
+  "space": "default",
+  "intent": "260924-classic",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "User Story は UI 部品単位ではなく学習体験単位で縦切りにする。AI-DLC の新版で追加された必須 Learning Topic は「教材化するか（必須度）」と「MVP 初期 Scenario に含めるか（Delivery 優先度）」を分離して Story 化する。"
+    },
+    {
+      "candidate_id": "c2",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "重要な学習 Story の Acceptance Criteria には、操作完了だけでなく次を含めて学習体験単位で検証可能にする: 判断理由を説明できること / AI-DLC specification・Simulator Interpretation・Simulation Assumption・harness behavior を必要に応じて区別できること / Decision がどの Dimension へ寄与したかを追跡できること。"
+    }
+  ]
+}

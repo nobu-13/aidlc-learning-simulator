@@ -1,0 +1,32 @@
+{
+  "stage": "units-generation",
+  "note": "全 US を deployable unit U1 へ対応。target は U1（story-map に一致）。internal_component は追跡性維持のための U1 内部 Domain Component 対応（unit を増やすものではない。deployable topology は U1 のみ）。Traceability != Verification。",
+  "upstream_ids": [
+    "US1.1", "US1.2", "US2.1", "US2.2", "US2.3", "US2.4", "US2.5", "US2.6",
+    "US3.1", "US3.2", "US4.1", "US5.1", "US5.2", "US5.3", "US6.1",
+    "US7.1", "US7.2", "US7.3", "US7.4", "US8.1", "US8.2"
+  ],
+  "coverage": [
+    { "id": "US1.1", "status": "OK", "target": "U1", "internal_component": "LocaleResources, ProgressStore" },
+    { "id": "US1.2", "status": "OK", "target": "U1", "internal_component": "ExperiencePolicy, ApplicationOrchestrator" },
+    { "id": "US2.1", "status": "OK", "target": "U1", "internal_component": "ScenarioCatalog, ScenarioProgression" },
+    { "id": "US2.2", "status": "OK", "target": "U1", "internal_component": "ScenarioProgression, DimensionEvaluator, ResultModel" },
+    { "id": "US2.3", "status": "OK", "target": "U1", "internal_component": "ScenarioProgression, ResultModel" },
+    { "id": "US2.4", "status": "OK", "target": "U1", "internal_component": "ApprovalSemantics" },
+    { "id": "US2.5", "status": "OK", "target": "U1", "internal_component": "ApprovalSemantics" },
+    { "id": "US2.6", "status": "OK", "target": "U1", "internal_component": "ExperiencePolicy, ScenarioProgression, DimensionEvaluator" },
+    { "id": "US3.1", "status": "OK", "target": "U1", "internal_component": "ResultModel, DimensionEvaluator" },
+    { "id": "US3.2", "status": "OK", "target": "U1", "internal_component": "DimensionEvaluator, DecisionEffectRules" },
+    { "id": "US4.1", "status": "OK", "target": "U1", "internal_component": "AdoptionSheetComposer, ResultModel" },
+    { "id": "US5.1", "status": "OK", "target": "U1", "internal_component": "ScenarioCatalog, ScenarioProgression" },
+    { "id": "US5.2", "status": "OK", "target": "U1", "internal_component": "ScenarioCatalog, ScenarioProgression" },
+    { "id": "US5.3", "status": "OK", "target": "U1", "internal_component": "ScenarioCatalog, ScenarioProgression, ApprovalSemantics" },
+    { "id": "US6.1", "status": "OK", "target": "U1", "internal_component": "ExperiencePolicy, ResultModel, AdoptionSheetComposer" },
+    { "id": "US7.1", "status": "OK", "target": "U1", "internal_component": "/ui (accessibility 横断)", "note": "Accessibility は単一 Domain Component の責務ではなく、主に /ui を中心として interaction/focus/keyboard/aria 等を横断する cross-cutting concern。module-folder 表記は意図的（新規 logical component として Accessibility を追加しない）。" },
+    { "id": "US7.2", "status": "OK", "target": "U1", "internal_component": "ProgressStore" },
+    { "id": "US7.3", "status": "OK", "target": "U1", "internal_component": "ScenarioCatalog, ResultModel (ProvenanceEntry)" },
+    { "id": "US7.4", "status": "OK", "target": "U1", "internal_component": "DimensionEvaluator, DecisionEffectRules" },
+    { "id": "US8.1", "status": "OK", "target": "U1", "internal_component": "ScenarioLoader, ScenarioCatalog", "note": "ScenarioLoader が raw JSON を検証し、ApplicationOrchestrator 経由で validated definitions として ScenarioCatalog へ取り込む。Catalog は raw JSON を直接読まない。US8.1 で ScenarioCatalog を追跡する理由は、JSON 追加が validated Scenario definition として Catalog へ取り込まれるため。" },
+    { "id": "US8.2", "status": "OK", "target": "U1", "internal_component": "ScenarioLoader, ScenarioProgression" }
+  ]
+}

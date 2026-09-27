@@ -1,0 +1,45 @@
+{
+  "name": "aidlc-learning-simulator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI-DLC を体験学習する教育用 Simulator (static React + TypeScript + Vite SPA)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run src/",
+    "test:unit": "vitest run src/",
+    "test:coverage": "vitest run src/ --coverage",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\""
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.4.8",
+    "@testing-library/react": "16.0.1",
+    "@testing-library/user-event": "14.5.2",
+    "@types/node": "^20.14.15",
+    "@types/react": "18.3.5",
+    "@types/react-dom": "18.3.0",
+    "@typescript-eslint/eslint-plugin": "7.18.0",
+    "@typescript-eslint/parser": "7.18.0",
+    "@vitejs/plugin-react": "4.3.1",
+    "@vitest/coverage-v8": "2.0.5",
+    "eslint": "8.57.0",
+    "eslint-plugin-jsx-a11y": "6.9.0",
+    "eslint-plugin-react": "7.35.0",
+    "eslint-plugin-react-hooks": "4.6.2",
+    "jsdom": "24.1.1",
+    "prettier": "3.3.3",
+    "typescript": "5.5.4",
+    "vite": "5.4.2",
+    "vitest": "2.0.5",
+    "vitest-axe": "0.1.0"
+  }
+}

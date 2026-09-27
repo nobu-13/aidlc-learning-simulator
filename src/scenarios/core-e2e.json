@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "scenario": {
+    "scenarioId": "core-e2e",
+    "kind": "core",
+    "titleKey": "sc.core-e2e.title",
+    "summaryKey": "sc.core-e2e.summary",
+    "learningObjectiveIds": ["lifecycle", "boundary", "approval", "evidence", "release-distinction"],
+    "stageIds": ["st-req", "st-plan", "st-build", "st-release"],
+    "learningPointIds": ["lp-boundary", "lp-evidence", "lp-release"],
+    "tags": ["core", "end-to-end"],
+    "provenanceRefs": ["pv-spec-lifecycle"]
+  },
+  "stages": [
+    { "stageId": "st-req", "titleKey": "sc.core-e2e.st-req.title", "decisionPointIds": ["dp-ac"] },
+    { "stageId": "st-plan", "titleKey": "sc.core-e2e.st-plan.title", "decisionPointIds": ["dp-delegate"] },
+    { "stageId": "st-build", "titleKey": "sc.core-e2e.st-build.title", "decisionPointIds": ["dp-testfail"] },
+    { "stageId": "st-release", "titleKey": "sc.core-e2e.st-release.title", "decisionPointIds": ["dp-release"] }
+  ],
+  "decisionPoints": [
+    {
+      "decisionPointId": "dp-ac",
+      "promptKey": "sc.core-e2e.dp-ac.prompt",
+      "optionIds": ["o-ac-clarify", "o-ac-skip"],
+      "learningPointRefs": [],
+      "important": true,
+      "provenanceRefs": ["pv-spec-ac"]
+    },
+    {
+      "decisionPointId": "dp-delegate",
+      "promptKey": "sc.core-e2e.dp-delegate.prompt",
+      "optionIds": ["o-del-agent-lowrisk", "o-del-human-lowrisk", "o-del-agent-highrisk"],
+      "learningPointRefs": ["lp-boundary"],
+      "important": true,
+      "provenanceRefs": ["pv-spec-boundary"]
+    },
+    {
+      "decisionPointId": "dp-testfail",
+      "promptKey": "sc.core-e2e.dp-testfail.prompt",
+      "optionIds": ["o-test-investigate", "o-test-tweak-expected"],
+      "learningPointRefs": ["lp-evidence"],
+      "important": true,
+      "provenanceRefs": ["pv-spec-testing"]
+    },
+    {
+      "decisionPointId": "dp-release",
+      "promptKey": "sc.core-e2e.dp-release.prompt",
+      "optionIds": ["o-rel-separate", "o-rel-conflate"],
+      "learningPointRefs": ["lp-release"],
+      "important": true,
+      "provenanceRefs": ["pv-spec-release"]
+    }
+  ],
+  "decisionOptions": [
+    { "optionId": "o-ac-clarify", "labelKey": "sc.core-e2e.o-ac-clarify.label", "effectRuleRefs": ["er-ac-clarify-rc", "er-ac-clarify-acc"], "provenanceRefs": ["pv-spec-ac"] },
+    { "optionId": "o-ac-skip", "labelKey": "sc.core-e2e.o-ac-skip.label", "effectRuleRefs": ["er-ac-skip-rc", "er-ac-skip-rework"], "provenanceRefs": [] },
+    { "optionId": "o-del-agent-lowrisk", "labelKey": "sc.core-e2e.o-del-agent-lowrisk.label", "effectRuleRefs": ["er-del-good"], "provenanceRefs": ["pv-spec-boundary"] },
+    { "optionId": "o-del-human-lowrisk", "labelKey": "sc.core-e2e.o-del-human-lowrisk.label", "effectRuleRefs": ["er-del-over"], "provenanceRefs": ["pv-interp-over"] },
+    { "optionId": "o-del-agent-highrisk", "labelKey": "sc.core-e2e.o-del-agent-highrisk.label", "effectRuleRefs": ["er-del-under-approval", "er-risk-under"], "provenanceRefs": ["pv-interp-under"] },
+    { "optionId": "o-test-investigate", "labelKey": "sc.core-e2e.o-test-investigate.label", "effectRuleRefs": ["er-ev-good"], "provenanceRefs": ["pv-spec-testing"] },
+    { "optionId": "o-test-tweak-expected", "labelKey": "sc.core-e2e.o-test-tweak-expected.label", "effectRuleRefs": ["er-ev-bad", "er-trace-bad"], "provenanceRefs": ["pv-spec-testing"] },
+    { "optionId": "o-rel-separate", "labelKey": "sc.core-e2e.o-rel-separate.label", "effectRuleRefs": ["er-ab-good"], "provenanceRefs": ["pv-spec-release"], "nextRef": "terminal" },
+    { "optionId": "o-rel-conflate", "labelKey": "sc.core-e2e.o-rel-conflate.label", "effectRuleRefs": ["er-ab-bad", "er-risk-remain"], "provenanceRefs": ["pv-spec-release"], "nextRef": "terminal" }
+  ],
+  "learningPoints": [
+    { "learningPointId": "lp-boundary", "conceptId": "delegation-boundary", "titleKey": "sc.core-e2e.lp-boundary.title", "bodyKey": "sc.core-e2e.lp-boundary.body", "provenanceRefs": ["pv-spec-boundary"], "betterAlternativeRef": "o-del-agent-lowrisk" },
+    { "learningPointId": "lp-evidence", "conceptId": "evidence-testing", "titleKey": "sc.core-e2e.lp-evidence.title", "bodyKey": "sc.core-e2e.lp-evidence.body", "provenanceRefs": ["pv-spec-testing"] },
+    { "learningPointId": "lp-release", "conceptId": "release-distinction", "titleKey": "sc.core-e2e.lp-release.title", "bodyKey": "sc.core-e2e.lp-release.body", "provenanceRefs": ["pv-spec-release"] }
+  ],
+  "effectRules": [
+    { "effectRuleId": "er-ac-clarify-rc", "dimensionId": "requirement-clarity", "contribution": "strong-positive" },
+    { "effectRuleId": "er-ac-clarify-acc", "dimensionId": "acceptance-criteria-coverage", "contribution": "positive" },
+    { "effectRuleId": "er-ac-skip-rc", "dimensionId": "requirement-clarity", "contribution": "negative" },
+    { "effectRuleId": "er-ac-skip-rework", "dimensionId": "rework", "contribution": "negative" },
+    { "effectRuleId": "er-del-good", "dimensionId": "delegation-quality", "contribution": "positive" },
+    { "effectRuleId": "er-del-over", "dimensionId": "delegation-quality", "contribution": "negative", "rationaleKey": "sc.core-e2e.rationale.over" },
+    { "effectRuleId": "er-del-under-approval", "dimensionId": "approval-boundary", "contribution": "negative", "rationaleKey": "sc.core-e2e.rationale.under" },
+    { "effectRuleId": "er-risk-under", "dimensionId": "risk-handling", "contribution": "negative" },
+    { "effectRuleId": "er-ev-good", "dimensionId": "evidence-quality", "contribution": "strong-positive" },
+    { "effectRuleId": "er-ev-bad", "dimensionId": "evidence-quality", "contribution": "strong-negative" },
+    { "effectRuleId": "er-trace-bad", "dimensionId": "traceability", "contribution": "negative" },
+    { "effectRuleId": "er-ab-good", "dimensionId": "approval-boundary", "contribution": "positive" },
+    { "effectRuleId": "er-ab-bad", "dimensionId": "approval-boundary", "contribution": "strong-negative" },
+    { "effectRuleId": "er-risk-remain", "dimensionId": "remaining-risks", "contribution": "negative" }
+  ],
+  "provenanceEntries": [
+    { "provenanceId": "pv-spec-lifecycle", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 Release Notes — Lifecycle", "noteKey": "sc.core-e2e.pv.lifecycle" },
+    { "provenanceId": "pv-spec-ac", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 — Requirements & Acceptance Criteria", "noteKey": "sc.core-e2e.pv.ac" },
+    { "provenanceId": "pv-spec-boundary", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 — Human/Agent Boundary & Approval Gate", "noteKey": "sc.core-e2e.pv.boundary" },
+    { "provenanceId": "pv-spec-testing", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 — Testing Contract & Executed vs Passed", "noteKey": "sc.core-e2e.pv.testing" },
+    { "provenanceId": "pv-spec-release", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 — Completion Approval vs Release Approval", "noteKey": "sc.core-e2e.pv.release" },
+    { "provenanceId": "pv-interp-over", "category": "simulator-interpretation", "noteKey": "sc.core-e2e.pv.over" },
+    { "provenanceId": "pv-interp-under", "category": "simulator-interpretation", "noteKey": "sc.core-e2e.pv.under" }
+  ]
+}

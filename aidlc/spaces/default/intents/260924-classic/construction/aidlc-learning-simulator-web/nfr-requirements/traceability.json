@@ -1,0 +1,22 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u1-aidlc-learning-simulator-web",
+  "note": "上流 NFR1〜9 を per-unit の NFRx.y へ対応。unit kind=ui のため scalability/reliability/observability の service 向け artifact は N/A（理由付き）。ただし client-side resilience は既存 NFR/Functional Design で保持する旨を明示。Coverage != Verification（対応づけは検証ではない。検証は Build & Test / Performance Validation）。core quality NFR（Determinism/Provenance/Accessibility/Maintainability/Portability/Honesty）は本ステージで検証可能な形に明文化。",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR9.1, NFR9.2（体験時間の performance 面）。Educational Effectiveness の定性目標自体は Build and Test / Performance Validation / Early User Test で確認" },
+    { "id": "NFR2", "status": "OK", "target": "NFR5.10（time/random 静的排除）。Determinism 契約は functional-design BR3.1/BR3.2/BR8.2 とテストで担保（同一入力→同一 DimensionOutcome、ja/en・mode 不変、runtime ID time/random 非依存）" },
+    { "id": "NFR3", "status": "OK", "target": "functional-design の対応 BR（BR1.6 provenance invariant, BR4.1/BR4.3 provenance 4区分・必須参照）で担保し、本ステージでは per-unit NFR として参照・検証条件を具体化（provenanceRefs>=1 100%、ai-dlc-spec は v2.10.0 reference 必須、4 category 混同なしを fixture validation で確認）" },
+    { "id": "NFR4", "status": "OK", "target": "tech-stack-decisions NFR5.5/NFR5.6（a11y test/lint ツール選定）で本ステージ担保。a11y の振る舞い契約（keyboard-only 完走・色のみ非依存・aria 通知）は functional-design frontend-components.md と BR4.2 で担保し、本ステージは検証条件（axe critical/serious=0、完全準拠は主張せず B8 で manual check）を具体化" },
+    { "id": "NFR5", "status": "OK", "target": "NFR5.1〜NFR5.10（tech-stack decisions、data-driven/layer 分離/strict/lint）" },
+    { "id": "NFR6", "status": "OK", "target": "NFR6.1, NFR6.2（portability contract = same source + hosting config、AWS 固有 runtime dependency 0）" },
+    { "id": "NFR7", "status": "OK", "target": "NFR7.1〜NFR7.9（security-requirements。自由入力 note の外部非送信・localStorage 非機密扱い含む）" },
+    { "id": "NFR8", "status": "OK", "target": "functional-design の対応 BR（BR7.2 Adoption Sheet は議論材料で確定物でない、BR3.x Educational Simulation Value）で担保し、本ステージでは per-unit NFR として参照・検証条件を具体化（simulation 由来数値を実測と誤認させない・4 区分識別）" },
+    { "id": "NFR9", "status": "OK", "target": "NFR9.1, NFR9.2, NFR9.3, NFR9.4（performance targets + 再現可能な測定条件）" }
+  ],
+  "reverse": [
+    { "id": "scalability-requirements", "status": "N/A", "target": "service 向け artifact。backend/API/DB/server workload を持たない static SPA のため該当なし" },
+    { "id": "observability-requirements", "status": "N/A", "target": "service observability（runtime telemetry/backend monitoring）は該当なし。client 側は外部送信しない方針（NFR7.4）" },
+    { "id": "reliability-requirements", "status": "N/A", "target": "service-level reliability artifact（可用性 SLA/フェイルオーバ等）は該当なし。ただし client-side resilience 要件は存在し、malformed Scenario fail-fast・partial invalid isolation・PersistenceError safe reset・deterministic error behavior・application shell survival を既存 NFR/Functional Design（BR1.1/BR1.8/BR2.2/BR6.3）で保持する" }
+  ]
+}

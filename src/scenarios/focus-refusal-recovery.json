@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "scenario": {
+    "scenarioId": "focus-refusal-recovery",
+    "kind": "focus",
+    "titleKey": "sc.focus-refusal-recovery.title",
+    "summaryKey": "sc.focus-refusal-recovery.summary",
+    "learningObjectiveIds": ["refusal", "recovery", "next-step"],
+    "stageIds": ["st-recovery"],
+    "learningPointIds": ["lp-recovery"],
+    "tags": ["focus", "refusal", "recovery", "v2.10.0"],
+    "provenanceRefs": ["pv-rr-spec"]
+  },
+  "stages": [
+    { "stageId": "st-recovery", "titleKey": "sc.focus-refusal-recovery.st-recovery.title", "decisionPointIds": ["dp-refusal", "dp-nextstep"] }
+  ],
+  "decisionPoints": [
+    {
+      "decisionPointId": "dp-refusal",
+      "promptKey": "sc.focus-refusal-recovery.dp-refusal.prompt",
+      "optionIds": ["o-read-refusal", "o-force-retry"],
+      "learningPointRefs": ["lp-recovery"],
+      "important": true,
+      "provenanceRefs": ["pv-rr-spec"]
+    },
+    {
+      "decisionPointId": "dp-nextstep",
+      "promptKey": "sc.focus-refusal-recovery.dp-nextstep.prompt",
+      "optionIds": ["o-actionable-next", "o-give-up"],
+      "learningPointRefs": ["lp-recovery"],
+      "important": true,
+      "provenanceRefs": ["pv-rr-spec"]
+    }
+  ],
+  "decisionOptions": [
+    { "optionId": "o-read-refusal", "labelKey": "sc.focus-refusal-recovery.o-read-refusal.label", "effectRuleRefs": ["er-rr-ev-pos", "er-rr-risk-pos"], "provenanceRefs": ["pv-rr-spec"] },
+    { "optionId": "o-force-retry", "labelKey": "sc.focus-refusal-recovery.o-force-retry.label", "effectRuleRefs": ["er-rr-ev-neg", "er-rr-rework-neg"], "provenanceRefs": ["pv-rr-interp"] },
+    { "optionId": "o-actionable-next", "labelKey": "sc.focus-refusal-recovery.o-actionable-next.label", "effectRuleRefs": ["er-rr-risk-pos2", "er-rr-remain-pos"], "provenanceRefs": ["pv-rr-spec"], "nextRef": "terminal" },
+    { "optionId": "o-give-up", "labelKey": "sc.focus-refusal-recovery.o-give-up.label", "effectRuleRefs": ["er-rr-remain-neg"], "provenanceRefs": ["pv-rr-interp"], "nextRef": "terminal" }
+  ],
+  "learningPoints": [
+    { "learningPointId": "lp-recovery", "conceptId": "refusal-recovery", "titleKey": "sc.focus-refusal-recovery.lp-recovery.title", "bodyKey": "sc.focus-refusal-recovery.lp-recovery.body", "provenanceRefs": ["pv-rr-spec"] }
+  ],
+  "effectRules": [
+    { "effectRuleId": "er-rr-ev-pos", "dimensionId": "evidence-quality", "contribution": "positive" },
+    { "effectRuleId": "er-rr-risk-pos", "dimensionId": "risk-handling", "contribution": "positive" },
+    { "effectRuleId": "er-rr-ev-neg", "dimensionId": "evidence-quality", "contribution": "negative" },
+    { "effectRuleId": "er-rr-rework-neg", "dimensionId": "rework", "contribution": "negative" },
+    { "effectRuleId": "er-rr-risk-pos2", "dimensionId": "risk-handling", "contribution": "positive" },
+    { "effectRuleId": "er-rr-remain-pos", "dimensionId": "remaining-risks", "contribution": "positive" },
+    { "effectRuleId": "er-rr-remain-neg", "dimensionId": "remaining-risks", "contribution": "negative" }
+  ],
+  "provenanceEntries": [
+    { "provenanceId": "pv-rr-spec", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 Release Notes — refusal / recovery path shows an executable next step", "noteKey": "sc.focus-refusal-recovery.pv.spec" },
+    { "provenanceId": "pv-rr-interp", "category": "simulator-interpretation", "noteKey": "sc.focus-refusal-recovery.pv.interp" }
+  ]
+}

@@ -1,0 +1,171 @@
+// アプリ chrome（Scenario 非依存）の locale bundle。ja/en で同一 key 集合を持つ（FR10.4）。
+// Scenario 固有の文言（titleKey/promptKey/labelKey 等）は Scenario JSON の localeBundles で供給する。
+import type { LocaleBundle } from "./locale-resources.ts";
+
+export const ja: LocaleBundle = {
+  "app.title": "AI-DLC 学習シミュレーター",
+  "app.tagline": "AI-DLC を体験的に学ぶ教育用シミュレーター",
+  "app.langLabel": "言語",
+  "app.lang.ja": "日本語",
+  "app.lang.en": "English",
+
+  "nav.home": "ホーム",
+  "nav.start": "はじめる",
+  "nav.focus": "フォーカス・シナリオ",
+  "nav.reset": "進捗をリセット",
+
+  "home.chooseMode": "学習モードを選ぶ",
+  "mode.guided": "ガイド付き学習",
+  "mode.guided.desc": "判断の前後に AI-DLC の概念を説明します（初学者向け）。",
+  "mode.simulation": "シミュレーション",
+  "mode.simulation.desc": "ヒントを減らし、あなた自身で判断します。",
+  "mode.adoption-review": "導入レビュー",
+  "mode.adoption-review.desc": "自分の判断を振り返り、実チームでの導入を検討します。",
+
+  "scenario.intro.start": "このシナリオを開始",
+  "scenario.decision.prompt": "判断してください",
+  "scenario.decision.note": "判断メモ（任意・採点には使われません）",
+  "scenario.decision.submit": "この選択を記録",
+  "scenario.feedback.title": "フィードバック",
+  "scenario.next": "次へ",
+  "scenario.complete": "シナリオ完了",
+
+  "result.title": "学習結果",
+  "result.dimensions": "評価ディメンション（教育用シミュレーション値）",
+  "result.simulationValueNote": "この評価は Educational Simulation Value であり、実測値ではありません。",
+  "result.timeline": "判断タイムライン",
+  "result.toReflection": "振り返りへ",
+
+  "reflection.title": "振り返り",
+  "reflection.toAdoption": "導入レビューへ進む",
+
+  "adoption.title": "AI-DLC 導入ディスカッションシート",
+  "adoption.generate": "ディスカッションシートを生成",
+  "adoption.download": "Markdown をダウンロード",
+  "adoption.note": "これは導入設計を確定するものではなく、チームで議論するための教材です。",
+  "adoption.testingExpectations": "正常系だけでなく異常系・決定性・アクセシビリティを検証する。未実行テストを成功扱いにしない。",
+  "adoption.section.project-context": "対象プロジェクトの背景と目的を記述します。",
+  "adoption.section.requirements": "主要な要求と受け入れ条件の粒度を議論します。",
+  "adoption.section.acceptance-criteria": "受け入れ条件の網羅性を確認します。",
+  "adoption.section.agent-delegation-boundary": "エージェントに委任できる範囲を定めます。",
+  "adoption.section.human-approval-boundary": "人間の承認が必要な境界を定めます。",
+  "adoption.section.evidence-required": "判断に必要な Evidence を列挙します。",
+  "adoption.section.remaining-risks": "残存リスクを記録します。",
+  "adoption.section.team-discussion-points": "チームで議論すべき論点を挙げます。",
+  "adoption.section.questions-to-resolve-before-adoption": "導入前に解決すべき問いを列挙します。",
+
+  "approval.completion.label": "AI-DLC 工程完了承認",
+  "approval.completion.description": "AI-DLC の各工程の成果物を承認することであり、本番リリースの承認とは異なります。",
+  "approval.release.label": "リリース承認",
+  "approval.release.description": "本番環境へのリリースを承認することであり、AI-DLC 工程完了承認とは別概念です。",
+
+  "provenance.ai-dlc-spec": "AI-DLC 仕様（一次情報）",
+  "provenance.harness-behavior": "ハーネス固有の挙動",
+  "provenance.simulator-interpretation": "シミュレーターの解釈",
+  "provenance.simulation-assumption": "シミュレーション上の仮定",
+
+  "boundary.title": "予期しないエラーが発生しました",
+  "boundary.body": "画面の描画中に想定外のエラーが発生しました。ページを再読み込みしてください。入力内容は端末内にのみ保存され、外部には送信されていません。",
+  "error.title": "シナリオを利用できません",
+  "error.scenario.invalid": "シナリオの検証に失敗しました",
+  "error.scenario.duplicateId": "シナリオ ID が重複しています",
+  "error.unavailableIntro": "次のシナリオを読み込めませんでした:",
+
+  "persist.recovered.corrupt": "保存データが壊れていたため、進捗をリセットしました。",
+  "persist.recovered.incompatible": "保存データの形式が非互換のため、進捗をリセットしました。",
+
+  "dimension.requirement-clarity": "要件の明確さ",
+  "dimension.acceptance-criteria-coverage": "受け入れ条件の網羅",
+  "dimension.evidence-quality": "Evidence の質",
+  "dimension.approval-boundary": "承認境界",
+  "dimension.delegation-quality": "委任の質",
+  "dimension.risk-handling": "リスク対応",
+  "dimension.traceability": "追跡可能性",
+  "dimension.rework": "手戻り",
+  "dimension.remaining-risks": "残存リスク",
+};
+
+export const en: LocaleBundle = {
+  "app.title": "AI-DLC Learning Simulator",
+  "app.tagline": "An educational simulator to learn AI-DLC by doing",
+  "app.langLabel": "Language",
+  "app.lang.ja": "日本語",
+  "app.lang.en": "English",
+
+  "nav.home": "Home",
+  "nav.start": "Start",
+  "nav.focus": "Focus Scenarios",
+  "nav.reset": "Reset progress",
+
+  "home.chooseMode": "Choose a learning mode",
+  "mode.guided": "Guided Learning",
+  "mode.guided.desc": "Explains AI-DLC concepts around each decision (for beginners).",
+  "mode.simulation": "Simulation",
+  "mode.simulation.desc": "Fewer hints; you make the calls yourself.",
+  "mode.adoption-review": "Adoption Review",
+  "mode.adoption-review.desc": "Reflect on your decisions and consider adoption in a real team.",
+
+  "scenario.intro.start": "Start this scenario",
+  "scenario.decision.prompt": "Make a decision",
+  "scenario.decision.note": "Decision note (optional; not used for scoring)",
+  "scenario.decision.submit": "Record this choice",
+  "scenario.feedback.title": "Feedback",
+  "scenario.next": "Next",
+  "scenario.complete": "Scenario complete",
+
+  "result.title": "Learning Result",
+  "result.dimensions": "Evaluation dimensions (Educational Simulation Value)",
+  "result.simulationValueNote": "This evaluation is an Educational Simulation Value, not a measured metric.",
+  "result.timeline": "Decision timeline",
+  "result.toReflection": "To reflection",
+
+  "reflection.title": "Reflection",
+  "reflection.toAdoption": "Proceed to Adoption Review",
+
+  "adoption.title": "AI-DLC Adoption Discussion Sheet",
+  "adoption.generate": "Generate discussion sheet",
+  "adoption.download": "Download Markdown",
+  "adoption.note": "This is educational material for team discussion, not a finalized adoption design.",
+  "adoption.testingExpectations": "Test error paths, determinism, and accessibility — not only happy paths. Never report unexecuted tests as passing.",
+  "adoption.section.project-context": "Describe the project background and goals.",
+  "adoption.section.requirements": "Discuss the key requirements and their granularity.",
+  "adoption.section.acceptance-criteria": "Check the coverage of acceptance criteria.",
+  "adoption.section.agent-delegation-boundary": "Define what can be delegated to the agent.",
+  "adoption.section.human-approval-boundary": "Define where human approval is required.",
+  "adoption.section.evidence-required": "List the evidence needed for decisions.",
+  "adoption.section.remaining-risks": "Record the remaining risks.",
+  "adoption.section.team-discussion-points": "List points the team should discuss.",
+  "adoption.section.questions-to-resolve-before-adoption": "List questions to resolve before adoption.",
+
+  "approval.completion.label": "AI-DLC Completion Approval",
+  "approval.completion.description": "Approves AI-DLC stage deliverables; distinct from a production release approval.",
+  "approval.release.label": "Release Approval",
+  "approval.release.description": "Approves release to production; a separate concept from AI-DLC completion approval.",
+
+  "provenance.ai-dlc-spec": "AI-DLC specification (primary source)",
+  "provenance.harness-behavior": "Harness-specific behavior",
+  "provenance.simulator-interpretation": "Simulator interpretation",
+  "provenance.simulation-assumption": "Simulation assumption",
+
+  "boundary.title": "An unexpected error occurred",
+  "boundary.body": "An unexpected error occurred while rendering. Please reload the page. Your input is stored only on your device and is never sent externally.",
+  "error.title": "Scenario unavailable",
+  "error.scenario.invalid": "Scenario validation failed",
+  "error.scenario.duplicateId": "Duplicate scenario ID",
+  "error.unavailableIntro": "The following scenarios could not be loaded:",
+
+  "persist.recovered.corrupt": "Saved data was corrupt, so progress has been reset.",
+  "persist.recovered.incompatible": "Saved data format was incompatible, so progress has been reset.",
+
+  "dimension.requirement-clarity": "Requirement clarity",
+  "dimension.acceptance-criteria-coverage": "Acceptance criteria coverage",
+  "dimension.evidence-quality": "Evidence quality",
+  "dimension.approval-boundary": "Approval boundary",
+  "dimension.delegation-quality": "Delegation quality",
+  "dimension.risk-handling": "Risk handling",
+  "dimension.traceability": "Traceability",
+  "dimension.rework": "Rework",
+  "dimension.remaining-risks": "Remaining risks",
+};
+
+export const chromeBundles: Readonly<Record<"ja" | "en", LocaleBundle>> = { ja, en };

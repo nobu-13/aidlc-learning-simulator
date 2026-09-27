@@ -1,0 +1,44 @@
+{
+  "stage": "nfr-design",
+  "unit": "u1-aidlc-learning-simulator-web",
+  "note": "nfr-requirements の各 NFRx.y を具体的な design solution へ対応。unit kind=ui のため scalability/reliability/observability の service 向け design artifact は N/A（reverse に理由）。ただし client-side resilience は logical-components/security-design で設計として保持。tech-stack 選定（NFR5.x）は nfr-requirements で確定済みのため本ステージでは design 適用先を示す。Coverage != Verification（検証は Build and Test / Performance Validation）。",
+  "upstream_ids": [
+    "NFR5.1", "NFR5.2", "NFR5.3", "NFR5.4", "NFR5.5", "NFR5.6", "NFR5.7", "NFR5.8", "NFR5.9", "NFR5.10",
+    "NFR6.1", "NFR6.2",
+    "NFR7.1", "NFR7.2", "NFR7.3", "NFR7.4", "NFR7.5", "NFR7.5a", "NFR7.6", "NFR7.7", "NFR7.8", "NFR7.9",
+    "NFR9.1", "NFR9.2", "NFR9.3", "NFR9.4"
+  ],
+  "coverage": [
+    { "id": "NFR5.1", "status": "OK", "target": "tech-stack 確定（TypeScript strict）。design 適用: logical-components の型安定した domain 境界、strict による type error 0 を Build and Test で担保" },
+    { "id": "NFR5.2", "status": "OK", "target": "React。performance-design の component-level code splitting、logical-components の UI presentation 境界" },
+    { "id": "NFR5.3", "status": "OK", "target": "Vite。performance-design の tree-shaking/split・NFR6 hosting config（base）" },
+    { "id": "NFR5.4", "status": "OK", "target": "Vitest+coverage-v8。design: 重要 domain path のテスト（logical-components の failure domain を検証対象に）" },
+    { "id": "NFR5.5", "status": "OK", "target": "user-event+axe。design: security-design の a11y 通知・logical-components の error visibility を検証" },
+    { "id": "NFR5.6", "status": "OK", "target": "eslint-plugin-jsx-a11y（静的 a11y）。UI 境界に適用" },
+    { "id": "NFR5.7", "status": "OK", "target": "zod。logical-components の ScenarioLoader 検証境界の実装手段（schema/cross-ref）" },
+    { "id": "NFR5.8", "status": "OK", "target": "独自軽量 i18n。security/performance と独立、locale key 解決のみ（semantic 不変）。missing key test を Build and Test で" },
+    { "id": "NFR5.9", "status": "OK", "target": "ESLint+Prettier。error 0 を品質ゲート" },
+    { "id": "NFR5.10", "status": "OK", "target": "determinism guard（ESLint directory-specific override）。logical-components の Domain 境界（pure）に time/random 排除を適用" },
+    { "id": "NFR6.1", "status": "OK", "target": "performance-design/security-design/Infrastructure 橋渡し: same source + hosting-specific configuration（Vite base 等）。logical-components が service 物理分離 N/A を明示" },
+    { "id": "NFR6.2", "status": "OK", "target": "no-network posture（security-design）で AWS 固有 runtime dependency 0 を設計上保証。application data は build-time 同梱" },
+    { "id": "NFR7.1", "status": "OK", "target": "security-design §3: secret を code/bundle に持たない設計（不要）" },
+    { "id": "NFR7.2", "status": "OK", "target": "security-design: 認証/認可モデルなし（該当なし）" },
+    { "id": "NFR7.3", "status": "OK", "target": "security-design §2: PII 入力を要求しない設計。自由入力 note は untrusted user text として I/O 全経路で扱う" },
+    { "id": "NFR7.4", "status": "OK", "target": "security-design §1 no-network posture: application data/user input を外部送信しない（analytics/telemetry/生成 AI 呼び出しを経路に持たない）" },
+    { "id": "NFR7.5", "status": "OK", "target": "security-design §4: localStorage のみ・機密保存先扱いしない" },
+    { "id": "NFR7.5a", "status": "OK", "target": "security-design §4: user-triggered reset UI で localStorage クリア。safe reset と別概念" },
+    { "id": "NFR7.6", "status": "OK", "target": "security-design §6: Dependabot/npm audit と例外記録運用を CI 設計として参照" },
+    { "id": "NFR7.7", "status": "OK", "target": "security-design §7: CI least-privilege（contents:read 基本、deploy job のみ最小追加、long-lived credential を避ける）。実装は Infrastructure/Pipeline" },
+    { "id": "NFR7.8", "status": "OK", "target": "security-design §5: CSP/security header の baseline policy を Infrastructure Design へ引き渡し（具体値は infra で確定）" },
+    { "id": "NFR7.9", "status": "OK", "target": "security-design 全体: proportionate（過剰 security tooling を追加しない）" },
+    { "id": "NFR9.1", "status": "OK", "target": "performance-design §1/§4: 初期 bundle 最小化・Core eager/preload・tree-shaking（load→Home ≤3s）" },
+    { "id": "NFR9.2", "status": "OK", "target": "performance-design §1/§2: build-time 同梱・Scenario shell を初期/preload・split 時 idle preload（Scenario→DecisionPoint ≤1s）" },
+    { "id": "NFR9.3", "status": "OK", "target": "performance-design §3: 同期純関数評価・必要時のみ semantic-key memoize（Decision→Feedback ≤200ms）" },
+    { "id": "NFR9.4", "status": "OK", "target": "performance-design §1/§4: 実測主導 code splitting（secondary lazy）・tree-shaking・依存最小化（初期 JS gzip ≤300KB budget）・CI 可視化" }
+  ],
+  "reverse": [
+    { "id": "scalability-design", "status": "N/A", "target": "service 向け artifact。backend/API/DB/server workload なし。client performance は performance-design で設計" },
+    { "id": "reliability-design", "status": "N/A", "target": "service-level reliability artifact（可用性 SLA/フェイルオーバ）は該当なし。client-side resilience（fail-fast/partial invalid isolation/safe reset/deterministic error/shell survival）は logical-components/security-design で設計として保持" },
+    { "id": "observability-design", "status": "N/A", "target": "service observability（runtime telemetry/backend monitoring）は該当なし（no-network posture）。client の error visibility は ErrorView/A11yLiveRegion で設計" }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "scenario": {
+    "scenarioId": "focus-checkpoint-review",
+    "kind": "focus",
+    "titleKey": "sc.focus-checkpoint-review.title",
+    "summaryKey": "sc.focus-checkpoint-review.summary",
+    "learningObjectiveIds": ["checkpoint-review", "verified-unit"],
+    "stageIds": ["st-review"],
+    "learningPointIds": ["lp-checkpoint"],
+    "tags": ["focus", "checkpoint", "review", "v2.10.0"],
+    "provenanceRefs": ["pv-cr-spec"]
+  },
+  "stages": [
+    { "stageId": "st-review", "titleKey": "sc.focus-checkpoint-review.st-review.title", "decisionPointIds": ["dp-verify", "dp-batch"] }
+  ],
+  "decisionPoints": [
+    {
+      "decisionPointId": "dp-verify",
+      "promptKey": "sc.focus-checkpoint-review.dp-verify.prompt",
+      "optionIds": ["o-verify-unit", "o-skip-verify"],
+      "learningPointRefs": ["lp-checkpoint"],
+      "important": true,
+      "provenanceRefs": ["pv-cr-spec"]
+    },
+    {
+      "decisionPointId": "dp-batch",
+      "promptKey": "sc.focus-checkpoint-review.dp-batch.prompt",
+      "optionIds": ["o-batch-checkpoint", "o-batch-blind"],
+      "learningPointRefs": ["lp-checkpoint"],
+      "important": true,
+      "provenanceRefs": ["pv-cr-spec"]
+    }
+  ],
+  "decisionOptions": [
+    { "optionId": "o-verify-unit", "labelKey": "sc.focus-checkpoint-review.o-verify-unit.label", "effectRuleRefs": ["er-cr-ev-pos", "er-cr-trace-pos"], "provenanceRefs": ["pv-cr-spec"] },
+    { "optionId": "o-skip-verify", "labelKey": "sc.focus-checkpoint-review.o-skip-verify.label", "effectRuleRefs": ["er-cr-ev-neg", "er-cr-risk-neg"], "provenanceRefs": ["pv-cr-interp"] },
+    { "optionId": "o-batch-checkpoint", "labelKey": "sc.focus-checkpoint-review.o-batch-checkpoint.label", "effectRuleRefs": ["er-cr-ab-pos"], "provenanceRefs": ["pv-cr-spec"], "nextRef": "terminal" },
+    { "optionId": "o-batch-blind", "labelKey": "sc.focus-checkpoint-review.o-batch-blind.label", "effectRuleRefs": ["er-cr-ab-neg", "er-cr-rework-neg"], "provenanceRefs": ["pv-cr-interp"], "nextRef": "terminal" }
+  ],
+  "learningPoints": [
+    { "learningPointId": "lp-checkpoint", "conceptId": "checkpoint-review", "titleKey": "sc.focus-checkpoint-review.lp-checkpoint.title", "bodyKey": "sc.focus-checkpoint-review.lp-checkpoint.body", "provenanceRefs": ["pv-cr-spec"] }
+  ],
+  "effectRules": [
+    { "effectRuleId": "er-cr-ev-pos", "dimensionId": "evidence-quality", "contribution": "positive" },
+    { "effectRuleId": "er-cr-trace-pos", "dimensionId": "traceability", "contribution": "positive" },
+    { "effectRuleId": "er-cr-ev-neg", "dimensionId": "evidence-quality", "contribution": "negative" },
+    { "effectRuleId": "er-cr-risk-neg", "dimensionId": "risk-handling", "contribution": "negative" },
+    { "effectRuleId": "er-cr-ab-pos", "dimensionId": "approval-boundary", "contribution": "positive" },
+    { "effectRuleId": "er-cr-ab-neg", "dimensionId": "approval-boundary", "contribution": "strong-negative" },
+    { "effectRuleId": "er-cr-rework-neg", "dimensionId": "rework", "contribution": "negative" }
+  ],
+  "provenanceEntries": [
+    { "provenanceId": "pv-cr-spec", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 Release Notes — verified Unit / batch checkpoint review", "noteKey": "sc.focus-checkpoint-review.pv.spec" },
+    { "provenanceId": "pv-cr-interp", "category": "simulator-interpretation", "noteKey": "sc.focus-checkpoint-review.pv.interp" }
+  ]
+}

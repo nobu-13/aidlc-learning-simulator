@@ -1,0 +1,28 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u1-aidlc-learning-simulator-web",
+  "note": "infrastructure が関わる NFRx.y の design 決定を concrete resource/configuration へ対応。static SPA（backend/DB/queue なし）のため compute/DB 系 infra は該当なし。NFR2/3/4/5.x/8 等の非 infra NFR は本ステージの対象外（upstream には含めず、functional/nfr 段で担保）。Coverage != Verification（実 provision/検証は Operation の Deployment Execution / smoke で行う）。",
+  "upstream_ids": [
+    "NFR6.1", "NFR6.2",
+    "NFR7.1", "NFR7.4", "NFR7.6", "NFR7.7", "NFR7.8",
+    "NFR9.1", "NFR9.2", "NFR9.3", "NFR9.4"
+  ],
+  "coverage": [
+    { "id": "NFR6.1", "status": "OK", "target": "infrastructure-specification: AWS(CloudFront+OAC+Private S3 REST)/GitHub Pages を same application source + hosting-specific configuration で配信。IaC=CloudFormation で AWS 側を定義" },
+    { "id": "NFR6.2", "status": "OK", "target": "no-network posture を反映し AWS 固有 runtime dependency 0。application data は build-time 同梱・runtime remote dependency なし（cicd-pipeline の build 成果物のみ配信）" },
+    { "id": "NFR7.1", "status": "OK", "target": "cicd-pipeline §5 / infrastructure: secret を bundle/repo/evidence に含めない。S3 に配信する成果物に secret を焼き込まない" },
+    { "id": "NFR7.4", "status": "OK", "target": "infrastructure: CSP connect-src 'self' と no-network posture により application data/user input の外部送信経路を作らない（CloudFront Response Headers Policy）" },
+    { "id": "NFR7.6", "status": "OK", "target": "cicd-pipeline CI: Dependabot/npm audit を CI に組み込み。例外記録運用は security-requirements 参照" },
+    { "id": "NFR7.7", "status": "OK", "target": "cicd-pipeline §3/§5: GitHub OIDC 短期 credential・stored AWS deployment secret=0・app deploy role を S3+CloudFront invalidation に最小化・CI job は contents:read で id-token:write なし・CFN 更新権限を app deploy role に混ぜない" },
+    { "id": "NFR7.8", "status": "OK", "target": "infrastructure-specification / monitoring: CloudFront Response Headers Policy で CSP・nosniff・Referrer-Policy・(HSTS) を付与（security-design baseline を実装値へ）。GitHub Pages は meta CSP best-effort" },
+    { "id": "NFR9.1", "status": "OK", "target": "cicd-pipeline CI: production build + Lighthouse 可視化（load→Home ≤3s の regression 監視）。CloudFront compression/HTTPS 配信" },
+    { "id": "NFR9.2", "status": "OK", "target": "infrastructure: build-time 同梱を S3 配信（runtime fetch なし）。CloudFront キャッシュで初回以降高速。CI で Lighthouse 監視" },
+    { "id": "NFR9.3", "status": "OK", "target": "cicd-pipeline CI: interaction latency を含む test/Lighthouse で regression 監視（Decision→Feedback ≤200ms）。infra 側は配信のみ、評価は client 同期処理" },
+    { "id": "NFR9.4", "status": "OK", "target": "cicd-pipeline CI: bundle size（gzip）可視化と 300KB budget monitoring。CloudFront compression 有効" }
+  ],
+  "reverse": [
+    { "id": "compute / DB / cache / queue / search / load-balancer", "status": "N/A", "target": "static SPA のため該当なし（backend/API/DB/server workload なし、C2）" },
+    { "id": "scalability / reliability(service) / observability(service) infra", "status": "N/A", "target": "service 向け infra は該当なし。client resilience は logical-components、配信監視は monitoring-design で扱う" },
+    { "id": "非 infra NFR（NFR2/NFR3/NFR4/NFR5.x/NFR8 等）", "status": "N/A", "target": "infrastructure の対象外。determinism/provenance/a11y/maintainability/honesty は functional-design・nfr-design・tests で担保（upstream_ids に含めない）" }
+  ]
+}

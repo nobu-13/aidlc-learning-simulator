@@ -1,0 +1,47 @@
+{
+  "stage": "domain-design",
+  "note": "US -> Component/Entity。加えて主要 Requirement (FR/NFR) -> Component も保持。target は components.md が定義する component/entity のみ（service/method/API は Contract Design / Functional Design で確定）。coverage の存在は Verification/Validation 済みを意味しない（Traceability != Verification）。",
+  "upstream_ids": [
+    "US1.1", "US1.2", "US2.1", "US2.2", "US2.3", "US2.4", "US2.5", "US2.6",
+    "US3.1", "US3.2", "US4.1", "US5.1", "US5.2", "US5.3", "US6.1",
+    "US7.1", "US7.2", "US7.3", "US7.4", "US8.1", "US8.2",
+    "FR3", "FR5", "FR6", "FR8", "FR9", "FR10", "FR11", "FR12",
+    "NFR2", "NFR3", "NFR5", "NFR8"
+  ],
+  "coverage": [
+    { "id": "US1.1", "status": "OK", "target": "LocaleResources, ProgressStore", "note": "言語判定/切替: 表示は Locale、language は Store に stable 保存" },
+    { "id": "US1.2", "status": "OK", "target": "ExperiencePolicy, ApplicationOrchestrator", "note": "モード選択・オンボーディング" },
+    { "id": "US2.1", "status": "OK", "target": "ScenarioCatalog, ScenarioProgression", "note": "Context/Concept 提示" },
+    { "id": "US2.2", "status": "OK", "target": "ScenarioProgression, DimensionEvaluator, ResultModel", "note": "Decision→Consequence/Explanation、DecisionRecord 生成" },
+    { "id": "US2.3", "status": "OK", "target": "ScenarioProgression", "note": "Return/Change Scope 手戻り、Rework(ResultModel)" },
+    { "id": "US2.4", "status": "OK", "target": "ApprovalSemantics", "note": "boundary vs approval gate 分離" },
+    { "id": "US2.5", "status": "OK", "target": "ApprovalSemantics", "note": "Completion Approval != Release Approval" },
+    { "id": "US2.6", "status": "OK", "target": "ExperiencePolicy, ScenarioProgression, DimensionEvaluator", "note": "Simulation モード: 同一 Engine/評価、提示のみ変化" },
+    { "id": "US3.1", "status": "OK", "target": "ResultModel, DimensionEvaluator", "note": "Result/Reflection・Decision Timeline・寄与追跡" },
+    { "id": "US3.2", "status": "OK", "target": "DimensionEvaluator, DecisionEffectRules", "note": "9 Dimension 非単調評価" },
+    { "id": "US4.1", "status": "OK", "target": "AdoptionSheetComposer", "note": "Adoption Discussion Sheet 決定的生成" },
+    { "id": "US5.1", "status": "OK", "target": "ScenarioCatalog, ScenarioProgression", "note": "Focus Scenario: 同一 Shell 再利用" },
+    { "id": "US5.2", "status": "OK", "target": "ScenarioCatalog, ScenarioProgression", "note": "checkpoint review 題材 (data)" },
+    { "id": "US5.3", "status": "OK", "target": "ScenarioCatalog, ScenarioProgression, ApprovalSemantics", "note": "recovery next-step 題材" },
+    { "id": "US6.1", "status": "OK", "target": "ExperiencePolicy, ResultModel, AdoptionSheetComposer", "note": "Adoption Review: 追加 Reflection prompt、Sheet 接続" },
+    { "id": "US7.1", "status": "Deferred", "target": "functional-design", "note": "keyboard 完走は UI/interaction 層。domain component 対象外" },
+    { "id": "US7.2", "status": "OK", "target": "ProgressStore", "note": "localStorage 永続化・破損処理" },
+    { "id": "US7.3", "status": "OK", "target": "ScenarioCatalog, ResultModel", "note": "provenance/教育値区別（ProvenanceEntry shared VO、isEducationalSimulationValue）" },
+    { "id": "US7.4", "status": "OK", "target": "DimensionEvaluator, DecisionEffectRules", "note": "決定的評価・rule/data・言語非依存" },
+    { "id": "US8.1", "status": "OK", "target": "ScenarioLoader, ScenarioCatalog", "note": "JSON で Scenario 追加（data-driven、domain 変更不要）" },
+    { "id": "US8.2", "status": "OK", "target": "ScenarioLoader, ScenarioProgression", "note": "malformed 検出(Loader) + mid-scenario 不整合(Progression invariant guard)" },
+
+    { "id": "FR3", "status": "OK", "target": "ScenarioCatalog, ScenarioLoader, ScenarioProgression", "note": "data-driven Scenario / 同一 Engine（Focus も同一 Progression/Catalog）" },
+    { "id": "FR5", "status": "OK", "target": "DimensionEvaluator, DecisionEffectRules", "note": "deterministic multi-dimensional evaluation（FR5.4 契約は Evaluator+Rules）" },
+    { "id": "FR6", "status": "OK", "target": "ScenarioCatalog, ResultModel", "note": "provenance（ProvenanceEntry shared VO、4 区分 invariant）" },
+    { "id": "FR8", "status": "OK", "target": "AdoptionSheetComposer", "note": "Adoption Discussion Sheet" },
+    { "id": "FR9", "status": "OK", "target": "ExperiencePolicy", "note": "3 learning modes（同一 Engine/Data 共有）" },
+    { "id": "FR10", "status": "OK", "target": "LocaleResources, DimensionEvaluator", "note": "i18n independence（意味データ言語非依存、Evaluator は表示非参照）" },
+    { "id": "FR11", "status": "OK", "target": "ProgressStore", "note": "persistence（localStorage port/adapter、stable ID 保存）" },
+    { "id": "FR12", "status": "OK", "target": "ScenarioLoader, ScenarioProgression", "note": "malformed Scenario handling（境界検証 + runtime invariant guard、silent fallback なし）" },
+    { "id": "NFR2", "status": "OK", "target": "DimensionEvaluator, ScenarioProgression, AdoptionSheetComposer", "note": "determinism（純関数・rule/data、same input->same result）" },
+    { "id": "NFR3", "status": "OK", "target": "ScenarioCatalog, ResultModel", "note": "Technical Accuracy/Traceability（ProvenanceEntry で spec/harness/interpretation/assumption 区別）" },
+    { "id": "NFR5", "status": "OK", "target": "ApplicationOrchestrator, ScenarioLoader, ProgressStore, LocaleResources, DecisionEffectRules", "note": "Maintainability/separation（hexagonal 依存方向・data-driven rule）" },
+    { "id": "NFR8", "status": "OK", "target": "DimensionEvaluator, ResultModel", "note": "honesty of claims（DimensionOutcome.isEducationalSimulationValue で実測値と区別）" }
+  ]
+}

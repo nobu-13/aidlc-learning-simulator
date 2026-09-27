@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  AI-DLC Learning Simulator - static site delivery (CloudFront + OAC + private S3 REST origin
+  + Response Headers Policy). Post-AI-DLC Release-activity IaC. Matches approved
+  infrastructure-specification.md. No backend / no compute. Region-agnostic for the
+  S3 bucket (deploy in ap-northeast-1); CloudFront + policies are global.
+#
+# SECURITY / DESIGN NOTES (from approved infrastructure-specification.md and security-design.md):
+# - S3 is a PRIVATE bucket (Block Public Access ON). No S3 website endpoint (OAC needs REST origin).
+# - CloudFront reads S3 via OAC (SigV4). Bucket policy allows ONLY the CloudFront distribution
+#   service principal with aws:SourceArn = this distribution (confused-deputy protection).
+# - Response Headers Policy is the AWS-side source of truth for CSP + security headers.
+# - No custom error response that rewrites all 403/404 to index.html: static-asset 404s stay 404
+#   (MVP first choice per spec; SPA deep-link routing not used).
+# - Deterministic app; no secrets in template. Rollback via S3 versioning + redeploy prior artifact.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aidlc-learning-simulator
+    Description: Name prefix for resources.
+
+Resources:
+
+  # ---------- Private S3 origin bucket ----------
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Private origin for CloudFront via OAC; versioning enables artifact rollback.
+        must:
+          - Block Public Access stays ON (all four true).
+          - No public bucket policy; only the CloudFront distribution may read.
+    Properties:
+      # Bucket name intentionally omitted -> CloudFormation assigns a unique name
+      # (avoids global-namespace collisions; the distribution references it by ARN/domain).
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  # ---------- Origin Access Control (OAC) ----------
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${ProjectName}-oac"
+        Description: OAC for private S3 REST origin (SigV4 signed reads).
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ---------- Response Headers Policy (security headers / CSP source of truth) ----------
+  SecurityHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "${ProjectName}-security-headers"
+        Comment: CSP + security headers (AWS-side source of truth). no-network posture.
+        SecurityHeadersConfig:
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: no-referrer
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Preload: false
+            Override: true
+          ContentSecurityPolicy:
+            # CSP is a recognized security header -> must live in SecurityHeadersConfig,
+            # NOT CustomHeadersConfig (CloudFront rejects CSP as a custom header).
+            # connect-src 'self' reflects no-network posture (no external application-data egress).
+            # style-src allows inline for Vite-injected styles; script-src is self-only (no inline script).
+            ContentSecurityPolicy: >-
+              default-src 'self'; connect-src 'self'; img-src 'self' data:;
+              style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none';
+              base-uri 'self'; frame-ancestors 'none'
+            Override: true
+
+  # ---------- CloudFront distribution ----------
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub "${ProjectName} static site"
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: s3-origin
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: s3-origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          # AWS managed CachingOptimized policy id (stable, well-known).
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+        # NOTE: no CustomErrorResponses that map 403/404 -> 200 index.html.
+        # Static-asset 404s remain 404 (per approved spec; no SPA deep-link rewrite in MVP).
+
+  # ---------- Bucket policy: allow ONLY this CloudFront distribution (OAC) ----------
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontOACReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${SiteBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution.Id}"
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt SiteBucket.Arn
+              - !Sub "${SiteBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+Outputs:
+  BucketName:
+    Description: Private S3 origin bucket name (app deploy target).
+    Value: !Ref SiteBucket
+  DistributionId:
+    Description: CloudFront distribution id (for invalidation).
+    Value: !Ref Distribution
+  PublicUrl:
+    Description: Public CloudFront URL (Hackathon evidence).
+    Value: !Sub "https://${Distribution.DomainName}"

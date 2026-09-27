@@ -1,0 +1,28 @@
+{
+  "stage_slug": "domain-design",
+  "space": "default",
+  "intent": "260924-classic",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "論理コンポーネントを UI 非依存 semantic model として設計し、authoring data / evaluation logic / runtime result を分離する。ProvenanceEntry は shared semantic value object として扱い、hexagonal な依存方向で domain の純粋性・決定性を守る（/domain は React/localStorage/UI library/locale 表示文字列/raw JSON を直接参照しない）。"
+    },
+    {
+      "candidate_id": "c2",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "failure は boundary 別に型区別する。External Validation は ScenarioLoader、Runtime Invariant は ScenarioProgression、Persistence failure は ProgressStore が所有する。stable ID を domain contract とし、ja/en 表示変更で identity / evaluation / traceability / persisted progress を変化させない。"
+    },
+    {
+      "candidate_id": "user_addition",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "## Corrections",
+      "text": "semantic entity の owner / producer / holder / reference を明確に分離する。canonical owner は 1 つに固定し、runtime で生成する component や結果として保持する component を owner と混同しない。components.md / ADR / traceability など Domain Design の複数成果物間で同じ用語で ownership 表現を整合させる。"
+    }
+  ]
+}

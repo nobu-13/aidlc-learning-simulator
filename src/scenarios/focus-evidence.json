@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "scenario": {
+    "scenarioId": "focus-evidence",
+    "kind": "focus",
+    "titleKey": "sc.focus-evidence.title",
+    "summaryKey": "sc.focus-evidence.summary",
+    "learningObjectiveIds": ["evidence", "testing"],
+    "stageIds": ["st-only"],
+    "learningPointIds": ["lp-ev"],
+    "tags": ["focus", "testing", "evidence"],
+    "provenanceRefs": ["pv-testing"]
+  },
+  "stages": [
+    { "stageId": "st-only", "titleKey": "sc.focus-evidence.st-only.title", "decisionPointIds": ["dp-fail", "dp-evidence"] }
+  ],
+  "decisionPoints": [
+    {
+      "decisionPointId": "dp-fail",
+      "promptKey": "sc.focus-evidence.dp-fail.prompt",
+      "optionIds": ["o-investigate", "o-tweak"],
+      "learningPointRefs": ["lp-ev"],
+      "important": true,
+      "provenanceRefs": ["pv-testing"]
+    },
+    {
+      "decisionPointId": "dp-evidence",
+      "promptKey": "sc.focus-evidence.dp-evidence.prompt",
+      "optionIds": ["o-require-evidence", "o-assume-ok"],
+      "learningPointRefs": ["lp-ev"],
+      "important": true,
+      "provenanceRefs": ["pv-evidence"]
+    }
+  ],
+  "decisionOptions": [
+    { "optionId": "o-investigate", "labelKey": "sc.focus-evidence.o-investigate.label", "effectRuleRefs": ["er-ev-pos"], "provenanceRefs": ["pv-testing"] },
+    { "optionId": "o-tweak", "labelKey": "sc.focus-evidence.o-tweak.label", "effectRuleRefs": ["er-ev-neg", "er-tr-neg"], "provenanceRefs": ["pv-testing"] },
+    { "optionId": "o-require-evidence", "labelKey": "sc.focus-evidence.o-require-evidence.label", "effectRuleRefs": ["er-ev-pos2"], "provenanceRefs": ["pv-evidence"], "nextRef": "terminal" },
+    { "optionId": "o-assume-ok", "labelKey": "sc.focus-evidence.o-assume-ok.label", "effectRuleRefs": ["er-ev-neg2", "er-risk-neg"], "provenanceRefs": ["pv-evidence"], "nextRef": "terminal" }
+  ],
+  "learningPoints": [
+    { "learningPointId": "lp-ev", "conceptId": "evidence-testing", "titleKey": "sc.focus-evidence.lp-ev.title", "bodyKey": "sc.focus-evidence.lp-ev.body", "provenanceRefs": ["pv-testing"] }
+  ],
+  "effectRules": [
+    { "effectRuleId": "er-ev-pos", "dimensionId": "evidence-quality", "contribution": "strong-positive" },
+    { "effectRuleId": "er-ev-neg", "dimensionId": "evidence-quality", "contribution": "strong-negative" },
+    { "effectRuleId": "er-tr-neg", "dimensionId": "traceability", "contribution": "negative" },
+    { "effectRuleId": "er-ev-pos2", "dimensionId": "evidence-quality", "contribution": "positive" },
+    { "effectRuleId": "er-ev-neg2", "dimensionId": "evidence-quality", "contribution": "negative" },
+    { "effectRuleId": "er-risk-neg", "dimensionId": "remaining-risks", "contribution": "negative" }
+  ],
+  "provenanceEntries": [
+    { "provenanceId": "pv-testing", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 — Testing Contract", "noteKey": "sc.focus-evidence.pv.testing" },
+    { "provenanceId": "pv-evidence", "category": "ai-dlc-spec", "reference": "AI-DLC v2.10.0 — Evidence sufficiency", "noteKey": "sc.focus-evidence.pv.evidence" }
+  ]
+}
