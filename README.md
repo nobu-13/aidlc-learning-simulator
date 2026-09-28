@@ -10,14 +10,22 @@ AI-DLC の意思決定プロセスを、シナリオ形式で疑似体験しな�
 
 ## Current Status
 
-**Pre-RC2 Baseline** — 最初の公開ベースラインです。今後 RC2 で学習体験と UI/UX の
-再設計を予定しています。このリポジトリはその改修前の状態を記録したものです。
+**RC2 — Learning Experience Upgrade（このブランチでローカル実装済み）** —
+Pre-RC2 の「短い選択式クイズ」から、Know → Decide → **Create → Review** まで到達できる
+実践型 Learning Simulator へアップグレードしました（ブランチ `feat/rc2-learning-ux-upgrade`。
+本ブランチでの実装であり、まだ deploy / push はしていません）。RC2 の詳細は
+[`docs/rc2-implementation-summary.md`](docs/rc2-implementation-summary.md) を参照してください。
 
 ## Highlights
 
-- **Deterministic scoring**: 同じ入力に対して常に同じ評価結果を返します（乱数・外部 AI 非依存）。
+- **Deterministic scoring**: 同じ入力に対して常に同じ評価結果を返します（乱数・外部 AI 非依存）。評価は mode / locale に依存しません。
+- **判断のフィードバック**: 各判断で「推奨 / 文脈依存 / リスク」の評価・Dimension 影響・理由・より良い選択肢・根拠 (provenance) を提示します。
+- **実践プラクティス (Create / Review)**: 要件を書く / Evidence をレビューする / 承認・委任を分類する / 追跡可能性を確認する / 変更管理を判断する、5 種類の決定的プラクティスを追加しました（runtime AI 不要）。
+- **3 モードの差別化**: Guided（概念先出し）/ Simulation（自力判断）/ Adoption Review（実チーム導入ワークショップ）で学習体験が明確に異なります。
+- **Learning Review Dashboard**: 9 Dimension、判断タイムライン、残存リスク、次に学ぶべき Focus を提示します。
+- **ナビゲーション**: 統一 AppShell（Home / Back）、AI-DLC ライフサイクル Stepper、進捗の永続化 (localStorage)、Retry を備えます。
 - **バックエンド / ランタイム AI なし**: すべてクライアントサイドで完結。ユーザー登録・DB・外部 AI API を使用しません。
-- **ja / en 対応**: 日本語・英語の両方で学習できます。
+- **ja / en 対応**: 日本語・英語の両方で学習できます（評価・進捗・成果物は言語で変わりません）。
 - **公開実績**: AWS CloudFront + プライベート S3 (OAC) 構成で静的サイトとして配信した実績があります。
 
 ## Tech Stack
@@ -78,10 +86,12 @@ design / traceability など) は `aidlc/spaces/default/` 配下に Evidence と
 Current public baseline: `v0.1.0-pre-rc2`
 
 構造化された learning-content audit により、learning depth / mode differentiation /
-feedback / results / navigation の各領域に次の改善点があることが分かりました。
-詳細は [`docs/rc2-baseline-audit.md`](docs/rc2-baseline-audit.md) を参照してください。
+feedback / results / navigation の各領域に改善点があることが分かりました。
+Pre-RC2 baseline の詳細は [`docs/rc2-baseline-audit.md`](docs/rc2-baseline-audit.md) を参照してください。
 
-RC2 redesign は計画済みですが、まだ実装していません。
+RC2 redesign はブランチ `feat/rc2-learning-ux-upgrade` でローカル実装済みです（deploy / push は未実施）。
+変更内容・Pre-RC2 比較・Self Audit は
+[`docs/rc2-implementation-summary.md`](docs/rc2-implementation-summary.md) にまとめています。
 
 ## License
 
