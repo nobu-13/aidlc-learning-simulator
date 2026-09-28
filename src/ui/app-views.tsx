@@ -21,8 +21,13 @@ const MODES: readonly ExperienceMode[] = ["guided", "simulation", "adoption-revi
 
 export function HomeView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.Element {
   const { app, t } = props;
+  // in-progress の進捗（現行 or 保存済み resumable）があれば Resume 導線を出す。
   const resumable =
-    app.state.progression?.session.status === "in-progress" ? app.state.progression : undefined;
+    app.state.progression?.session.status === "in-progress"
+      ? { scenario: app.state.scenario, progression: app.state.progression }
+      : app.state.resumable !== undefined
+        ? { scenario: app.state.resumable.scenario, progression: app.state.resumable.progression }
+        : undefined;
   return (
     <section aria-labelledby="home-h" className="home">
       <div className="hero">
@@ -35,12 +40,12 @@ export function HomeView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.Elem
         </button>
       </div>
 
-      {resumable !== undefined && app.state.scenario !== undefined ? (
+      {resumable !== undefined && resumable.scenario !== undefined ? (
         <div className="card continue-card" data-testid="continue-card">
           <h2>{t("home.continue.title")}</h2>
           <p className="muted">{t("home.continue.desc")}</p>
-          <p>{t(app.state.scenario.scenario.titleKey)}</p>
-          <button className="primary" data-testid="continue" onClick={() => app.goHome()}>
+          <p>{t(resumable.scenario.scenario.titleKey)}</p>
+          <button className="primary" data-testid="continue" onClick={() => app.resume()}>
             {t("home.continue.cta")}
           </button>
         </div>
@@ -181,12 +186,18 @@ export function ScenarioIntroView(props: { app: AppApi; t: I18nResolver["t"] }):
 
 export function ScenarioView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.Element {
   const { app, t } = props;
-  // note は Decision 単位。currentDecisionPointId が変わるたびに reset する（BUG 4.3 の恒久対策）。
+  // note は Decision 単位。currentDecisionPointId が変わるたびに、その DP に既に記録された
+  // note（あれば）を初期値にする。無ければ空（BUG 4.3 / §6: carry-over と重複を防ぐ）。
   const [note, setNote] = useState("");
   const { scenario, progression, currentDecisionPointId, showFeedback, mode, feedback } = app.state;
   const dpId = currentDecisionPointId;
+  // この DP に対応する既存 DecisionRecord の note（goBack 後の再表示に使う）。
+  const recordedNote =
+    progression?.decisionRecords.find((r) => r.decisionPointId === dpId)?.note ?? "";
   useEffect(() => {
-    setNote("");
+    setNote(recordedNote);
+    // dpId 変更時のみ初期化（入力途中に上書きしない）。recordedNote は dpId に一意対応。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpId]);
 
   if (scenario === undefined || progression === undefined || currentDecisionPointId === undefined) {
@@ -202,7 +213,7 @@ export function ScenarioView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.
         {t(scenario.scenario.titleKey)}
       </h1>
 
-      <LifecycleStepper scenario={scenario} progression={progression} t={t} />
+      <LifecycleStepper scenario={scenario} progression={progression} showFeedback={showFeedback} t={t} />
 
       {!showFeedback ? (
         <div className="decision-panel">
@@ -412,10 +423,13 @@ export function AdoptionReviewView(props: {
   resolver: I18nResolverType;
 }): JSX.Element {
   const { app, t, resolver } = props;
-  const { scenario, result, progression } = app.state;
-  // Workshop 入力（heading slug → text）。端末内のみ・外部送信なし。
-  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const { scenario, result, progression, workshopInputs, locale } = app.state;
+  // 生成済み preview と、それを生成したときの出力言語（locale 変更検知に使う）。
   const [sheet, setSheet] = useState<string | null>(null);
+  const [sheetLocale, setSheetLocale] = useState<typeof locale | null>(null);
+
+  // §9: UI locale が生成時と変わったら preview を陳腐化として扱い、再生成を促す。
+  const stale = sheet !== null && sheetLocale !== null && sheetLocale !== locale;
 
   const buildSheet = (): string | null => {
     if (scenario === undefined || result === undefined) return null;
@@ -427,12 +441,15 @@ export function AdoptionReviewView(props: {
       result,
       decisionRecords: progression?.decisionRecords ?? [],
       text: resolver.t,
-      workshopInputs: inputs,
+      workshopInputs,
       ...(notes.length > 0 ? { userNotes: notes } : {}),
     });
   };
 
-  const generate = (): void => setSheet(buildSheet());
+  const generate = (): void => {
+    setSheet(buildSheet());
+    setSheetLocale(locale);
+  };
 
   const download = (): void => {
     const md = sheet ?? buildSheet();
@@ -454,9 +471,11 @@ export function AdoptionReviewView(props: {
       <div className="workshop">
         {ADOPTION_SHEET_HEADINGS.map((heading) => {
           const slug = adoptionHeadingSlug(heading);
+          // §9: 各 textarea に section 固有の accessible name（"<heading> — Your input"）。
+          const accessibleName = `${heading} — ${t("adoption.workshop.userAuthored")}`;
           return (
             <div key={slug} className="card workshop-section" data-testid={`workshop-${slug}`}>
-              <h2>{heading}</h2>
+              <h2 id={`ws-h-${slug}`}>{heading}</h2>
               <p className="muted system-generated">
                 <span className="tag">{t("adoption.workshop.systemGenerated")}</span>{" "}
                 {sectionGuidance(heading, resolver.t)}
@@ -468,9 +487,10 @@ export function AdoptionReviewView(props: {
                 <textarea
                   id={`ws-${slug}`}
                   data-testid={`ws-${slug}`}
+                  aria-label={accessibleName}
                   rows={3}
-                  value={inputs[slug] ?? ""}
-                  onChange={(e) => setInputs((s) => ({ ...s, [slug]: e.target.value }))}
+                  value={workshopInputs[slug] ?? ""}
+                  onChange={(e) => app.setWorkshopInput(slug, e.target.value)}
                 />
               </div>
             </div>
@@ -489,9 +509,23 @@ export function AdoptionReviewView(props: {
         ) : null}
       </div>
 
+      {stale ? (
+        <p className="not-evaluated" data-testid="sheet-stale-notice" role="status">
+          ⓘ {t("adoption.workshop.staleNotice")}
+        </p>
+      ) : null}
+
       {sheet !== null ? (
         <div className="card">
-          <label htmlFor="sheet-preview">{t("adoption.workshop.preview")}</label>
+          <label htmlFor="sheet-preview">
+            {t("adoption.workshop.preview")}
+            {sheetLocale !== null ? (
+              <span className="muted" data-testid="sheet-output-locale">
+                {" "}
+                — {t("adoption.workshop.outputLocale")}: {t(`app.lang.${sheetLocale}`)}
+              </span>
+            ) : null}
+          </label>
           <textarea id="sheet-preview" data-testid="sheet-preview" value={sheet} readOnly rows={16} />
         </div>
       ) : null}
