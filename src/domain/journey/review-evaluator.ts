@@ -243,3 +243,15 @@ export function evaluateArtifactReview(
     hadDefects: defectCount > 0,
   };
 }
+
+/**
+ * critical learning blocker の判定（P1-3）。決定的・pure。
+ * high severity の見逃しがあり、かつ gate が too-lenient（未解決を残して通した）なら true。
+ * この判定は mode に依存しない事実。mode によって「block を強制するか」は呼び出し側（mode policy）で決める。
+ */
+export function hasCriticalLearningBlocker(evaluation: ReviewEvaluation): boolean {
+  const missedHigh = evaluation.findingOutcomes.some(
+    (f) => f.kind === "missed" && f.expectedSeverity === "high",
+  );
+  return missedHigh && evaluation.gateQuality === "too-lenient";
+}

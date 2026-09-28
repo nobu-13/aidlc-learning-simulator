@@ -175,6 +175,11 @@ export interface ArtifactItem {
   readonly defectId?: string | undefined;
   /** ambiguous-looking but valid / distractor 等の「罠」であることを示す（有効項目・要件 7）。finding-candidate のまま。 */
   readonly distractor?: boolean | undefined;
+  /**
+   * informational（consequence 顕在化）項目の由来 step（P2-3）。
+   * 前段の見逃しがどの工程由来かを UI で示すための表示専用メタ。採点には使わない。
+   */
+  readonly originStepId?: JourneyStepId | undefined;
 }
 
 /**

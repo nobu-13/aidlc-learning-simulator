@@ -109,10 +109,14 @@ export interface GenerateArtifactArgs {
   readonly defects: readonly DefectDefinition[];
   readonly revision: number;
   /**
-   * 見逃した defect による consequence 差し込み（Adoption の伝播・Design §13）。
-   * ここに渡された manifest item は「顕在化した問題」として Artifact に決定的に追加される。
+   * 見逃した defect による consequence 差し込み（Adoption の伝播・Design §13 / P2-3）。
+   * ここに渡された manifest は「顕在化した問題」として Artifact に決定的に追加される。
+   * sourceStepId は由来工程（UI が「前段の見逃し由来」であることを示すため）。
    */
-  readonly injectedConsequenceItemKeys?: readonly string[] | undefined;
+  readonly injectedConsequences?: readonly {
+    readonly manifestItemKey: string;
+    readonly sourceStepId: JourneyStepId;
+  }[] | undefined;
 }
 
 /** 定義済み field のみを含む quote object を作る（exactOptionalPropertyTypes 対応）。 */
@@ -187,14 +191,15 @@ export function generateArtifact(args: GenerateArtifactArgs): GeneratedArtifact 
 
   // 3) consequence 差し込み（見逃し伝播）。前段の見逃しで顕在化した「情報」であり、新しい Finding 候補ではない。
   //    reviewability=informational で明示し、採点母集団から除外する（FIX 1）。distractor は使わない。
-  const consequenceKeys = args.injectedConsequenceItemKeys ?? [];
-  consequenceKeys.forEach((manifestKey, idx) => {
+  const consequences = args.injectedConsequences ?? [];
+  consequences.forEach((c, idx) => {
     items.push({
       itemId: `consequence-${stepId}-${idx}`,
       labelKey: "rc3.consequence.label",
-      bodyKey: manifestKey,
+      bodyKey: c.manifestItemKey,
       reviewability: "informational",
       userDerived: false,
+      originStepId: c.sourceStepId,
     });
   });
 
