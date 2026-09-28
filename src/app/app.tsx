@@ -142,18 +142,42 @@ export function App(props: { application?: Application; initialSurface?: "journe
   }
 }
 
-/** RC3 Journey 用の簡易 Shell（RC2 AppShell とは別。言語切替と復元バナーのみ）。 */
+/**
+ * RC3 Journey 用 Shell（P1-4）。常時発見可能な Back / Home を提供する。
+ * Navigation は presentation only — domain state（revision / completed / rework）を変えない。
+ * Home へ戻っても Journey は破棄せず、Resume で復帰できる。
+ */
 function JourneyShell(props: {
   app: ReturnType<typeof useAppState>;
   journey: ReturnType<typeof useJourneyState>;
   t: Application["resolver"]["t"];
   children: JSX.Element;
 }): JSX.Element {
-  const { app, t, children } = props;
+  const { app, journey, t, children } = props;
+  const backKind = journey.backKind;
   return (
     <div className="shell">
       <header className="shell-header">
         <div className="shell-nav">
+          <button
+            className="shell-home"
+            data-testid="journey-nav-home"
+            onClick={() => journey.goHome()}
+            aria-label={t("rc3.nav.home")}
+          >
+            ⌂ {t("rc3.nav.home")}
+          </button>
+          {backKind === "back" ? (
+            <button className="shell-back" data-testid="journey-nav-back" onClick={() => journey.goBack()}>
+              ← {t("rc3.nav.back")}
+            </button>
+          ) : backKind === "home" ? (
+            <button className="shell-back" data-testid="journey-nav-back-home" onClick={() => journey.goBack()}>
+              ⌂ {t("rc3.nav.home")}
+            </button>
+          ) : null}
+        </div>
+        <div className="shell-title">
           <span className="shell-app-title">{t("app.title")}</span>
         </div>
         <div className="shell-meta">

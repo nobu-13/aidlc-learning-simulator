@@ -768,3 +768,58 @@ input[type="text"] {
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
 }
+
+/* ===== RC3 Stabilization ===== */
+.revision-banner {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-weak);
+}
+.revision-banner ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1rem;
+}
+.consequence-origin {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--warn);
+}
+.consequence-cause {
+  display: block;
+  font-size: 0.85em;
+}
+.completion-summary ul,
+.causal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.causal-entry {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.causal-entry .revisit {
+  font-weight: 600;
+  color: var(--accent);
+}
+.link-button {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--accent);
+  text-decoration: underline;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  min-height: 44px;
+}
+.shell-back,
+.shell-home {
+  min-height: 44px;
+}

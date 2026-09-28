@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import type { JourneyApi } from "../app/use-journey-state.ts";
 import type { I18nResolver } from "../i18n/locale-resources.ts";
-import type { DimensionId } from "../domain/entities.ts";
+import type { ContributionLevel, DimensionId } from "../domain/entities.ts";
 import { DIMENSION_IDS } from "../domain/entities.ts";
 import {
   JOURNEY_STEP_IDS,
@@ -29,6 +29,22 @@ const GATE_OPTIONS: readonly GateDecision[] = [
   "block",
 ];
 const SEVERITIES: readonly Severity[] = ["low", "medium", "high"];
+
+/** ContributionLevel を記号へ（Result / Completion summary 共通）。 */
+function levelSymbolOf(level: ContributionLevel): string {
+  switch (level) {
+    case "strong-positive":
+      return "++";
+    case "positive":
+      return "+";
+    case "negative":
+      return "-";
+    case "strong-negative":
+      return "--";
+    default:
+      return "0";
+  }
+}
 const APPROVALS: readonly ApprovalDecision[] = ["approve", "approve-with-conditions", "return", "block"];
 
 /** RC3 Journey の現在位置を示す Stepper（既存 lifecycle-stepper と同思想・RC3 専用）。 */
@@ -68,6 +84,16 @@ export function JourneyHomeView(props: { journey: JourneyApi; t: T; onExitToGym:
         </h1>
         <p className="home-tagline">{t("rc3.home.desc")}</p>
       </div>
+
+      {journey.state.resumable ? (
+        <div className="card continue-card" data-testid="journey-resume-card">
+          <h2>{t("rc3.resume.title")}</h2>
+          <p className="muted">{t("rc3.resume.desc")}</p>
+          <button className="primary" data-testid="journey-resume" onClick={() => journey.resume()}>
+            {t("rc3.resume.cta")}
+          </button>
+        </div>
+      ) : null}
 
       <div className="card">
         <h2>{t("home.modes.title")}</h2>
@@ -203,14 +229,16 @@ export function JourneyReviewView(props: { journey: JourneyApi; t: T }): JSX.Ele
       <h1 id="jr-h">{t(artifact.titleKey)}</h1>
       <p className="muted">{t(artifact.summaryKey)}</p>
 
+      <RevisionBanner journey={journey} stepId={artifact.journeyStepId} revision={artifact.revision} t={t} />
+
       {Object.keys(artifact.quotedUserText).length > 0 ? (
         <div className="card quoted" data-testid="review-quoted">
           <h2>{t("rc3.review.quoted")}</h2>
           <ul>
             {Object.entries(artifact.quotedUserText).map(([field, text]) =>
               text !== undefined && text.length > 0 ? (
-                <li key={field}>
-                  <strong>{t(`rc3.field.${field}`)}:</strong> {t(text)}
+                <li key={field} data-testid={`review-quoted-${field}`}>
+                  <strong>{t(`rc3.field.${field}`)}:</strong> {renderUserText(text, t)}
                 </li>
               ) : null,
             )}
@@ -236,6 +264,12 @@ export function JourneyReviewView(props: { journey: JourneyApi; t: T }): JSX.Ele
                     <span>
                       <span className="muted">{t(item.bodyKey)}</span>
                     </span>
+                    {item.originStepId !== undefined ? (
+                      <span className="consequence-origin" data-testid={`review-info-origin-${item.itemId}`}>
+                        {t("rc3.consequence.origin")}: {t(`rc3.journey.step.${item.originStepId}`)}
+                      </span>
+                    ) : null}
+                    <span className="muted consequence-cause">{t("rc3.consequence.cause")}</span>
                   </li>
                 ) : (
                 <li key={item.itemId} className="review-item">
@@ -329,8 +363,8 @@ export function JourneyFeedbackView(props: { journey: JourneyApi; t: T }): JSX.E
   const caught = ev.findingOutcomes.filter((f) => f.kind === "caught");
   const missed = ev.findingOutcomes.filter((f) => f.kind === "missed");
   const falseFlags = ev.findingOutcomes.filter((f) => f.kind === "false");
-  const criticalMissed = missed.filter((m) => m.expectedSeverity === "high");
-  const mustFix = policy.requireCriticalFix && criticalMissed.length > 0;
+  // P1-3: must-fix は hook が判定した state.mustFix（high 見逃し + too-lenient + Simulation）を使う。
+  const mustFix = journey.state.mustFix;
 
   return (
     <section aria-labelledby="jf-h" className="journey-feedback">
@@ -423,11 +457,40 @@ export function JourneyFeedbackView(props: { journey: JourneyApi; t: T }): JSX.E
 
 export function JourneyCompletionView(props: { journey: JourneyApi; t: T }): JSX.Element {
   const { journey, t } = props;
+  const summary = useMemo(() => journey.completionSummary(), [journey]);
   return (
     <section aria-labelledby="jc-h" className="journey-approval">
       <JourneyStepper journey={journey} t={t} />
       <h1 id="jc-h">{t("rc3.completion.title")}</h1>
       <p className="muted">{t("rc3.completion.desc")}</p>
+
+      {/* P2-4: Completion 判断材料。Release 固有情報は含めない。 */}
+      <div className="card completion-summary" data-testid="completion-summary">
+        <h2>{t("rc3.completion.summary.title")}</h2>
+        <ul>
+          <li data-testid="completion-evidence">
+            {t("rc3.completion.summary.evidence")}:{" "}
+            {t(`rc3.completion.summary.evidence.${summary.evidenceStatus}`)}
+          </li>
+          <li data-testid="completion-unresolved">
+            {t("rc3.completion.summary.unresolved")}: {summary.unresolvedFindingCount}
+          </li>
+          <li data-testid="completion-remaining-risk">
+            {t("rc3.completion.summary.remainingRisk")}: {levelSymbolOf(summary.remainingRisksLevel)}
+          </li>
+          <li data-testid="completion-rework">
+            {t("rc3.completion.summary.reworkCount")}: {summary.reworkCount}
+          </li>
+          <li data-testid="completion-steps">
+            {t("rc3.completion.summary.completedSteps")}: {summary.completedReviewStepCount} /{" "}
+            {summary.totalReviewStepCount}
+          </li>
+        </ul>
+        <p className="muted" role="note">
+          {t("rc3.completion.summary.note")}
+        </p>
+      </div>
+
       <div className="approval-actions">
         {APPROVALS.map((d) => (
           <button
@@ -500,21 +563,11 @@ export function JourneyReleaseView(props: { journey: JourneyApi; t: T }): JSX.El
 export function JourneyResultView(props: { journey: JourneyApi; t: T; onToGym: () => void }): JSX.Element {
   const { journey, t, onToGym } = props;
   const result = useMemo(() => journey.finalResult(), [journey]);
+  const causal = useMemo(() => journey.causalSummary(), [journey]);
   const policy = journey.policy;
   const levelSymbol = (id: DimensionId): string => {
     const o = result.dimensionOutcomes.find((x) => x.dimensionId === id);
-    switch (o?.level) {
-      case "strong-positive":
-        return "++";
-      case "positive":
-        return "+";
-      case "negative":
-        return "-";
-      case "strong-negative":
-        return "--";
-      default:
-        return "0";
-    }
+    return levelSymbolOf(o?.level ?? "neutral");
   };
 
   return (
@@ -575,6 +628,49 @@ export function JourneyResultView(props: { journey: JourneyApi; t: T; onToGym: (
         </div>
       ) : null}
 
+      {/* P2-5: 因果学習サマリ（何が/なぜ/由来/影響/戻り先）。決定的。 */}
+      <div className="card causal-summary" data-testid="result-causal">
+        <h2>{t("rc3.result.causal.title")}</h2>
+        {causal.length === 0 ? (
+          <p className="muted" data-testid="result-causal-none">
+            {t("rc3.result.causal.none")}
+          </p>
+        ) : (
+          <ul className="causal-list">
+            {causal.map((c) => (
+              <li key={c.dimensionId} className="causal-entry" data-testid={`result-causal-${c.dimensionId}`}>
+                <strong>
+                  {t(`dimension.${c.dimensionId}`)}: {levelSymbolOf(c.level)}
+                </strong>
+                <span>
+                  {t("rc3.result.causal.why")}: {t(`rc3.why.${c.dimensionId}`)}
+                </span>
+                {c.originStepId !== undefined ? (
+                  <span className="muted">
+                    {t("rc3.result.causal.origin")}: {t(`rc3.journey.step.${c.originStepId}`)}
+                  </span>
+                ) : null}
+                {c.consequenceKey !== undefined ? (
+                  <span className="muted">
+                    {t("rc3.result.causal.consequence")}: {t(c.consequenceKey)}
+                  </span>
+                ) : null}
+                {c.revisitStepId !== undefined ? (
+                  <span className="revisit" data-testid={`result-causal-revisit-${c.dimensionId}`}>
+                    {t("rc3.result.causal.revisit")}: {t(`rc3.journey.step.${c.revisitStepId}`)}
+                  </span>
+                ) : null}
+                {c.gymSuggested ? (
+                  <button className="link-button" data-testid={`result-causal-gym-${c.dimensionId}`} onClick={onToGym}>
+                    {t("rc3.result.causal.gym")}
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div className="result-actions">
         <button className="secondary" data-testid="result-to-gym" onClick={onToGym}>
           {t("rc3.result.toGym")}
@@ -584,6 +680,46 @@ export function JourneyResultView(props: { journey: JourneyApi; t: T; onToGym: (
         </button>
       </div>
     </section>
+  );
+}
+
+/**
+ * quoted user-authored text を表示する（P2-1）。
+ * canonical Sample は locale key（`rc3.sample.*`）なので resolve する。
+ * user 入力の raw text は resolve せずそのまま表示する（⟦missing:...⟧ を出さない）。
+ */
+function renderUserText(text: string, t: T): string {
+  return text.startsWith("rc3.sample.") ? t(text) : text;
+}
+
+/** Rework 後の revision を可視化する banner（P2-2）。revision 0 のときは出さない。 */
+function RevisionBanner(props: {
+  journey: JourneyApi;
+  stepId: JourneyStepId;
+  revision: number;
+  t: T;
+}): JSX.Element | null {
+  const { journey, stepId, revision, t } = props;
+  if (revision <= 0) return null;
+  // この step への直近 rework entry（reason / from）を探す。
+  const history = journey.state.progress.reworkHistory;
+  const last = [...history].reverse().find((e) => e.toStepId === stepId);
+  return (
+    <div className="card revision-banner" data-testid="revision-banner">
+      <strong data-testid="revision-label">
+        {t("rc3.revision.label")} {revision}
+      </strong>
+      {last !== undefined ? (
+        <ul className="muted">
+          <li>
+            {t("rc3.revision.returnedFrom")}: {t(`rc3.journey.step.${last.fromStepId}`)}
+          </li>
+          <li>
+            {t("rc3.revision.reason")}: {t(`rc3.trigger.${last.trigger}`)}
+          </li>
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

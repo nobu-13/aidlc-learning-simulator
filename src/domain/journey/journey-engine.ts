@@ -24,7 +24,6 @@ import {
 import {
   computeConsequences,
   consequenceContributions,
-  consequenceItemKeysForStep,
   type ConsequenceManifestation,
 } from "./consequence-engine.ts";
 import { foldJourneyContributions, type JourneyDimensionOutcome } from "./journey-result.ts";
@@ -55,11 +54,13 @@ export function buildArtifactForStep(
   const policy = journeyModePolicyFor(input.mode);
 
   // Adoption（propagateConsequences=true）のみ、既に見逃した defect の manifestation を注入する。
-  let injectedConsequenceItemKeys: readonly string[] = [];
+  let injectedConsequences: readonly { manifestItemKey: string; sourceStepId: JourneyStepId }[] = [];
   if (policy.propagateConsequences) {
     const missed = collectMissedDefectsBefore(input, stepId, defects);
     const consequences = computeConsequences(missed);
-    injectedConsequenceItemKeys = consequenceItemKeysForStep(consequences, stepId);
+    injectedConsequences = consequences
+      .filter((c) => c.atStepId === stepId)
+      .map((c) => ({ manifestItemKey: c.manifestItemKey, sourceStepId: c.sourceStepId }));
   }
 
   return generateArtifact({
@@ -68,7 +69,7 @@ export function buildArtifactForStep(
     context: input.profile.context,
     defects,
     revision: revisionOf(input.progress, stepId),
-    injectedConsequenceItemKeys,
+    injectedConsequences,
   });
 }
 

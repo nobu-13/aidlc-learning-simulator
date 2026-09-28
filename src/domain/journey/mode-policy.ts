@@ -85,3 +85,13 @@ const POLICIES: Record<ExperienceMode, JourneyModePolicy> = {
 export function journeyModePolicyFor(mode: ExperienceMode): JourneyModePolicy {
   return POLICIES[mode];
 }
+
+/**
+ * critical learning blocker があるとき、その mode で「次工程へ進む前に必ず修正させる」か（P1-3）。
+ * - Simulation（requireCriticalFix=true）のみ強制ブロック。
+ * - Guided は assisted learning、Adoption は final-only evaluation なので強制しない（mode policy 維持）。
+ */
+export function mustBlockOnCriticalMiss(mode: ExperienceMode, hasCriticalBlocker: boolean): boolean {
+  if (!hasCriticalBlocker) return false;
+  return journeyModePolicyFor(mode).requireCriticalFix;
+}
