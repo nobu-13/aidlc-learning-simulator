@@ -58,12 +58,20 @@ function PracticeProvenance(props: { refs: readonly string[]; t: T }): JSX.Eleme
 
 function RequirementPracticeView(props: {
   practice: Extract<Practice, { kind: "requirement" }>;
+  app: AppApi;
   t: T;
 }): JSX.Element {
-  const { practice, t } = props;
-  const [values, setValues] = useState<Partial<Record<RequirementFieldId, string>>>({});
+  const { practice, app, t } = props;
+  // draft は localStorage 永続（§5）。初期値は保存済み draft から復元。
+  const savedDraft = app.state.practiceDrafts[practice.practiceId] ?? {};
+  const [values, setValues] = useState<Partial<Record<RequirementFieldId, string>>>(savedDraft);
   const [evaluated, setEvaluated] = useState(false);
   const result = evaluated ? evaluateRequirement(practice, { values }) : null;
+
+  const setField = (fieldId: RequirementFieldId, text: string): void => {
+    setValues((v) => ({ ...v, [fieldId]: text }));
+    app.setPracticeDraft(practice.practiceId, fieldId, text);
+  };
 
   return (
     <div>
@@ -86,7 +94,7 @@ function RequirementPracticeView(props: {
               data-testid={`req-${f.fieldId}`}
               rows={f.multiline ? 3 : 1}
               value={values[f.fieldId] ?? ""}
-              onChange={(e) => setValues((v) => ({ ...v, [f.fieldId]: e.target.value }))}
+              onChange={(e) => setField(f.fieldId, e.target.value)}
             />
           </div>
         ))}
@@ -98,8 +106,10 @@ function RequirementPracticeView(props: {
         <button
           data-testid="practice-reset"
           onClick={() => {
+            // ユーザーが明示的に reset したときのみ draft を消す（§5）。
             setValues({});
             setEvaluated(false);
+            app.clearPracticeDraft(practice.practiceId);
           }}
         >
           {t("practice.reset")}
@@ -519,15 +529,15 @@ export function PracticeView(props: { app: AppApi; t: T }): JSX.Element {
       <button data-testid="practice-back" onClick={() => app.goPracticeLibrary()}>
         ← {t("practice.back")}
       </button>
-      {renderPractice(practice, t)}
+      {renderPractice(practice, app, t)}
     </section>
   );
 }
 
-function renderPractice(practice: Practice, t: T): JSX.Element {
+function renderPractice(practice: Practice, app: AppApi, t: T): JSX.Element {
   switch (practice.kind) {
     case "requirement":
-      return <RequirementPracticeView practice={practice} t={t} />;
+      return <RequirementPracticeView practice={practice} app={app} t={t} />;
     case "evidence-review":
       return <EvidenceReviewPracticeView practice={practice} t={t} />;
     case "classification":

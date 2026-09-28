@@ -2,13 +2,9 @@
 // Home / Back / current mode / current scenario / language switch を統一的に提供し、
 // ユーザーが行き止まりにならないようにする。
 import type { AppApi } from "../app/use-app-state.ts";
+import { backLabelKind } from "../app/use-app-state.ts";
 import type { I18nResolver } from "../i18n/locale-resources.ts";
 import { LangSwitcher } from "./lang-switcher.tsx";
-
-/** Back を出すべき view か（Home / error 以外）。 */
-function canGoBack(view: AppApi["state"]["view"]): boolean {
-  return view !== "home" && view !== "error";
-}
 
 export function AppShell(props: {
   app: AppApi;
@@ -17,6 +13,8 @@ export function AppShell(props: {
 }): JSX.Element {
   const { app, t, children } = props;
   const { view, mode, scenario } = app.state;
+  // §8: logical back が可能なら "Back"、home へ丸める view では "Home" と明示する。
+  const backKind = backLabelKind(app.state);
 
   return (
     <div className="shell">
@@ -30,9 +28,17 @@ export function AppShell(props: {
           >
             ⌂ {t("nav.home")}
           </button>
-          {canGoBack(view) ? (
+          {backKind === "back" ? (
             <button className="shell-back" data-testid="nav-back" onClick={() => app.goBack()}>
               ← {t("nav.back")}
+            </button>
+          ) : backKind === "home" ? (
+            <button
+              className="shell-back"
+              data-testid="nav-back-home"
+              onClick={() => app.goBack()}
+            >
+              ⌂ {t("nav.home")}
             </button>
           ) : null}
         </div>

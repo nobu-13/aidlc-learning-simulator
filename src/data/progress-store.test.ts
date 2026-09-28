@@ -27,12 +27,15 @@ function sampleProgress(): PersistedProgress {
   return {
     persistenceSchemaVersion: PERSISTENCE_SCHEMA_VERSION,
     locale: "ja",
+    mode: "guided",
     sessions: [{ sessionId: "sess-1", scenarioId: "s1", status: "in-progress", decisionRecordIds: ["dr-1"] }],
     decisionRecords: [
       { decisionRecordId: "dr-1", sessionId: "sess-1", decisionPointId: "dp1", chosenDecisionOptionId: "o1", orderIndex: 0 },
     ],
     completedScenarioIds: [],
     adoptionMemos: [],
+    workshopInputs: {},
+    practiceDrafts: {},
   };
 }
 
@@ -84,6 +87,46 @@ describe("ProgressStore", () => {
     const { progress, recovered } = store.load("ja");
     expect(recovered).toBe("incompatible");
     expect(progress).toEqual(emptyProgress("ja"));
+  });
+
+  it("v1 データは additive migration で受理し scenario 進捗を失わない（v1→v2）", () => {
+    const store = new ProgressStore(
+      fakeStorage({
+        [KEY]: JSON.stringify({
+          persistenceSchemaVersion: 1,
+          locale: "ja",
+          sessions: [{ sessionId: "sess-1", scenarioId: "s1", status: "in-progress", decisionRecordIds: ["dr-1"] }],
+          decisionRecords: [
+            { decisionRecordId: "dr-1", sessionId: "sess-1", decisionPointId: "dp1", chosenDecisionOptionId: "o1", orderIndex: 0 },
+          ],
+          completedScenarioIds: [],
+          adoptionMemos: [],
+        }),
+      }),
+    );
+    const { progress, recovered } = store.load("ja");
+    expect(recovered).toBeNull();
+    // scenario 進捗は保持。
+    expect(progress.sessions[0]?.sessionId).toBe("sess-1");
+    // 追加フィールドは空で補完され、version は最新へ。
+    expect(progress.persistenceSchemaVersion).toBe(PERSISTENCE_SCHEMA_VERSION);
+    expect(progress.mode).toBe("guided");
+    expect(progress.workshopInputs).toEqual({});
+    expect(progress.practiceDrafts).toEqual({});
+  });
+
+  it("v2 の workshopInputs / practiceDrafts が round-trip する", () => {
+    const s = fakeStorage();
+    const store = new ProgressStore(s);
+    const p: PersistedProgress = {
+      ...sampleProgress(),
+      workshopInputs: { "project-context": "my ctx" },
+      practiceDrafts: { "req-create": { goal: "g" } },
+    };
+    store.save(p);
+    const { progress } = store.load("ja");
+    expect(progress.workshopInputs["project-context"]).toBe("my ctx");
+    expect(progress.practiceDrafts["req-create"]?.goal).toBe("g");
   });
 
   it("userReset は localStorage をクリアする（NFR7.5a）", () => {

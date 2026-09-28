@@ -29,9 +29,11 @@ function decisionProgress(
 export function LifecycleStepper(props: {
   scenario: ValidatedScenario;
   progression: ProgressionState;
+  /** feedback 表示中か。true のとき「直近に回答した Decision」を current として表示する（§7）。 */
+  showFeedback?: boolean;
   t: I18nResolver["t"];
 }): JSX.Element {
-  const { scenario, progression, t } = props;
+  const { scenario, progression, showFeedback = false, t } = props;
   const currentStageId = progression.session.currentStageId;
   const completed = progression.session.status === "completed";
   const currentIdx = currentStageId
@@ -40,6 +42,15 @@ export function LifecycleStepper(props: {
 
   const { answered, total } = decisionProgress(scenario, progression);
   const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
+  // 表示する「現在の Decision 番号」（§7）:
+  //  - feedback 表示中: 直近に回答した Decision が対象 = answered（既に記録済み）。
+  //  - 判断入力中: これから答える Decision = answered + 1。
+  //  - 完了: total。
+  const currentDecisionNumber = completed
+    ? total
+    : showFeedback
+      ? Math.min(answered, total)
+      : Math.min(answered + 1, total);
 
   return (
     <nav className="stepper" aria-label={t("stepper.title")}>
@@ -78,9 +89,8 @@ export function LifecycleStepper(props: {
         >
           <span className="progressbar-fill" style={{ width: `${pct}%` }} />
         </div>
-        <span className="stepper-count">
-          {t("stepper.decision")} {Math.min(answered + (completed ? 0 : 1), total)} {t("stepper.of")}{" "}
-          {total} · {pct}%
+        <span className="stepper-count" data-testid="stepper-count">
+          {t("stepper.decision")} {currentDecisionNumber} {t("stepper.of")} {total} · {pct}%
         </span>
       </div>
     </nav>

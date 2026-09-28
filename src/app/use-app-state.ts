@@ -1,7 +1,7 @@
 // UI 用の presentation state controller（/app）。
 // domain logic は持たず、domain 関数（progression/result/feedback/dashboard）を呼び出して結果を
 // presentation state に反映する（BR8.1）。localStorage 永続を ProgressStore 経由でフローに接続する。
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { Application } from "./application-orchestrator.ts";
 import type {
   DecisionRecord,
@@ -20,7 +20,12 @@ import {
 import { buildLearningResult } from "../domain/result-model.ts";
 import { buildFeedbackCard, type FeedbackCard } from "../domain/feedback-model.ts";
 import { buildResultDashboard, type ResultDashboard } from "../domain/result-summary.ts";
-import { emptyProgress, type PersistedProgress } from "../data/progress-store.ts";
+import {
+  emptyProgress,
+  type PersistedProgress,
+  type PracticeDrafts,
+  type WorkshopInputs,
+} from "../data/progress-store.ts";
 
 export type View =
   | "home"
@@ -52,6 +57,22 @@ export interface AppState {
   readonly dashboard?: ResultDashboard | undefined;
   /** 選択中の practice id（practice view）。 */
   readonly practiceId?: string | undefined;
+  /** Adoption Workshop の user-authored 入力（heading slug → text）。localStorage 永続。 */
+  readonly workshopInputs: WorkshopInputs;
+  /** Practice ごとの下書き（practiceId → key/value テキスト）。localStorage 永続。 */
+  readonly practiceDrafts: PracticeDrafts;
+  /**
+   * 復元可能な in-progress 進捗のスナップショット（Home の Resume 導線用）。
+   * これがあると Home で continue-card を表示し、resume() で scenario へ戻せる。
+   */
+  readonly resumable?:
+    | {
+        readonly scenario: ValidatedScenario;
+        readonly progression: ProgressionState;
+        readonly mode: ExperienceMode;
+        readonly currentDecisionPointId?: string | undefined;
+      }
+    | undefined;
   /** 復元通知（"corrupt" | "incompatible" | "restored" | null）。 */
   readonly recovered?: "corrupt" | "incompatible" | "restored" | null;
   /** runtime の DomainInvariantError 等で errored 遷移したときのメッセージ（握り潰さない）。 */
@@ -79,10 +100,43 @@ export interface AppApi {
   proceed(): void;
   goBack(): void;
   retry(): void;
+  /** 保存済みの in-progress 進捗へ復帰する（Home の Resume 導線）。 */
+  resume(): void;
   toReflection(): void;
   toAdoption(): void;
   resetProgress(): void;
   dismissRecovered(): void;
+  /** Adoption Workshop の入力を更新（localStorage 永続）。 */
+  setWorkshopInput(slug: string, text: string): void;
+  /** Practice 下書きを更新（localStorage 永続）。 */
+  setPracticeDraft(practiceId: string, key: string, text: string): void;
+  /** 指定 Practice の下書きを消す（ユーザーが明示的に reset したときのみ）。 */
+  clearPracticeDraft(practiceId: string): void;
+}
+
+/**
+ * back ボタンが「論理的な前画面」へ戻るのか「Home」へ戻るのかを返す（§8）。
+ * home へ丸める view では UI が "Back" ではなく "Home" と表示するために使う。
+ */
+export function backLabelKind(state: AppState): "back" | "home" | "none" {
+  switch (state.view) {
+    case "home":
+    case "error":
+      return "none";
+    case "scenario":
+    case "scenario-intro":
+    case "reflection":
+    case "adoption":
+    case "practice":
+      return "back";
+    // これらは論理的前画面が Home なので Home と明示する。
+    case "mode-select":
+    case "focus-library":
+    case "practice-library":
+    case "result":
+    default:
+      return "home";
+  }
 }
 
 /** 現 Stage の「次に提示する DecisionPoint」を決める（未回答の最初の DecisionPoint）。 */
@@ -98,32 +152,41 @@ function nextDecisionPointId(
   return stage.decisionPointIds.find((dp) => !answered.has(dp));
 }
 
-/** in-progress の scenario 進捗を PersistedProgress へ落とし込む（stable-ID のみ・表示文言なし）。 */
+/** state 全体を PersistedProgress へ落とし込む（stable-ID のみ・表示文言なし）。 */
 function toPersisted(state: AppState): PersistedProgress {
   const base = emptyProgress(state.locale);
   const sessions: ScenarioSession[] = [];
   const decisionRecords: DecisionRecord[] = [];
   const completed: string[] = [];
-  if (state.progression !== undefined) {
-    sessions.push(state.progression.session);
-    decisionRecords.push(...state.progression.decisionRecords);
-    if (state.progression.session.status === "completed") {
-      completed.push(state.progression.session.scenarioId);
+  // 現在進行中/完了の session を優先。無ければ resumable（Home へ戻った後も進捗を保持）。
+  const active = state.progression ?? state.resumable?.progression;
+  if (active !== undefined) {
+    sessions.push(active.session);
+    decisionRecords.push(...active.decisionRecords);
+    if (active.session.status === "completed") {
+      completed.push(active.session.scenarioId);
     }
   }
   return {
     ...base,
+    mode: state.mode,
     sessions,
     decisionRecords,
     completedScenarioIds: completed,
+    workshopInputs: state.workshopInputs,
+    practiceDrafts: state.practiceDrafts,
   };
 }
 
-/** PersistedProgress から scenario 進捗を復元する（catalog に存在し、整合するもののみ）。 */
-function restoreFrom(
-  app: Application,
-  persisted: PersistedProgress,
-): Pick<AppState, "scenario" | "progression" | "currentDecisionPointId" | "view"> | null {
+/** 復元可能な in-progress 進捗のスナップショット型（AppState.resumable と同型）。 */
+type Resumable = NonNullable<AppState["resumable"]>;
+
+/**
+ * PersistedProgress から復元可能な in-progress scenario 進捗を組み立てる
+ * （catalog に存在し、整合するもののみ。Core / Focus いずれも対象）。
+ * 不正/古い state のときは null（呼び出し側が controlled fallback）。
+ */
+function restoreFrom(app: Application, persisted: PersistedProgress): Resumable | null {
   const session = persisted.sessions[0];
   if (session === undefined) return null;
   if (session.status !== "in-progress") return null;
@@ -139,7 +202,7 @@ function restoreFrom(
   }
   const progression: ProgressionState = { session, decisionRecords: records };
   const dp = nextDecisionPointId(scenario, progression);
-  return { scenario, progression, currentDecisionPointId: dp, view: "scenario" };
+  return { scenario, progression, mode: persisted.mode, currentDecisionPointId: dp };
 }
 
 export function useAppState(app: Application): AppApi {
@@ -147,31 +210,33 @@ export function useAppState(app: Application): AppApi {
 
   const [state, setState] = useState<AppState>(() => {
     if (!hasScenarios) {
-      return { view: "error", locale: app.locale, mode: "guided", showFeedback: false };
+      return {
+        view: "error",
+        locale: app.locale,
+        mode: "guided",
+        showFeedback: false,
+        workshopInputs: {},
+        practiceDrafts: {},
+      };
     }
     // 起動時に localStorage から復元を試みる（BUG 4.5 / FR11）。
     const loaded = app.store.load(app.locale);
+    const resumable = restoreFrom(app, loaded.progress);
     const base: AppState = {
       view: "home",
       locale: loaded.progress.locale,
-      mode: "guided",
+      // 復元できた進捗があれば、その mode を採用（Resume で正しいモードに戻す）。
+      mode: resumable !== null ? resumable.mode : loaded.progress.mode,
       showFeedback: false,
+      workshopInputs: loaded.progress.workshopInputs,
+      practiceDrafts: loaded.progress.practiceDrafts,
       recovered: loaded.recovered,
     };
-    const restored = restoreFrom(app, loaded.progress);
-    if (restored !== null) {
-      return { ...base, ...restored, view: "home", recovered: "restored" };
+    if (resumable !== null) {
+      return { ...base, resumable, recovered: "restored" };
     }
     return base;
   });
-
-  // 復元可能な in-progress 進捗を保持（Home の「続きから」導線用）。
-  const resumableRef = useRef<AppState | null>(null);
-  useEffect(() => {
-    if (resumableRef.current === null && state.progression?.session.status === "in-progress") {
-      resumableRef.current = state;
-    }
-  }, [state]);
 
   // state 変化のたびに永続化する（in-progress / completed を保存）。
   const persist = useCallback(
@@ -246,6 +311,7 @@ export function useAppState(app: Application): AppApi {
             feedback: undefined,
             result: undefined,
             dashboard: undefined,
+            resumable: undefined,
           };
         } catch (e) {
           return toErrored(s, e);
@@ -329,34 +395,54 @@ export function useAppState(app: Application): AppApi {
     );
   }, [update, app]);
 
-  // 直前の判断へ戻る（feedback 表示中は入力へ戻す。決定的な safe transition・RC2 §16）。
+  // logical back（§8）。view ごとに意味のある「前の画面」へ戻す。
+  // 安全な logical back が無い view は home へ（UI 側は Back ではなく Home と表示する）。
   const goBack = useCallback(() => {
     update((s) => {
-      if (s.showFeedback) {
-        // feedback 表示中 → 最後の decision を取り消して選び直す。
-        if (s.scenario === undefined || s.progression === undefined) {
-          return { ...s, showFeedback: false, feedback: undefined };
+      switch (s.view) {
+        case "scenario": {
+          if (s.showFeedback) {
+            // feedback 表示中 → 最後の decision を取り消して選び直す（決定的 rollback・§16）。
+            if (s.scenario === undefined || s.progression === undefined) {
+              return { ...s, showFeedback: false, feedback: undefined };
+            }
+            const records = s.progression.decisionRecords;
+            const last = records[records.length - 1];
+            if (last === undefined) return { ...s, showFeedback: false, feedback: undefined };
+            const trimmed = records.slice(0, -1);
+            const progression: ProgressionState = {
+              session: {
+                ...s.progression.session,
+                decisionRecordIds: trimmed.map((r) => r.decisionRecordId),
+              },
+              decisionRecords: trimmed,
+            };
+            return {
+              ...s,
+              progression,
+              currentDecisionPointId: last.decisionPointId,
+              showFeedback: false,
+              feedback: undefined,
+            };
+          }
+          // 判断入力中 → intro へ。
+          return { ...s, view: "scenario-intro" };
         }
-        const records = s.progression.decisionRecords;
-        const last = records[records.length - 1];
-        if (last === undefined) return { ...s, showFeedback: false, feedback: undefined };
-        const trimmed = records.slice(0, -1);
-        const progression: ProgressionState = {
-          session: {
-            ...s.progression.session,
-            decisionRecordIds: trimmed.map((r) => r.decisionRecordId),
-          },
-          decisionRecords: trimmed,
-        };
-        return {
-          ...s,
-          progression,
-          currentDecisionPointId: last.decisionPointId,
-          showFeedback: false,
-          feedback: undefined,
-        };
+        case "scenario-intro":
+          return { ...s, view: s.scenario?.scenario.kind === "focus" ? "focus-library" : "mode-select" };
+        case "reflection":
+          return { ...s, view: "result" };
+        case "adoption":
+          return { ...s, view: "reflection" };
+        case "practice":
+          return { ...s, view: "practice-library" };
+        case "mode-select":
+        case "focus-library":
+        case "practice-library":
+        case "result":
+        default:
+          return { ...s, view: "home" };
       }
-      return { ...s, view: "home" };
     }, { persist: true });
   }, [update]);
 
@@ -376,6 +462,7 @@ export function useAppState(app: Application): AppApi {
             feedback: undefined,
             result: undefined,
             dashboard: undefined,
+            resumable: undefined,
           };
         } catch (e) {
           return toErrored(s, e);
@@ -385,22 +472,81 @@ export function useAppState(app: Application): AppApi {
     );
   }, [update]);
 
+  // 保存済み in-progress 進捗へ復帰（Home の Resume 導線・P1）。
+  const resume = useCallback(() => {
+    update((s) => {
+      const r = s.resumable;
+      if (r === undefined) return s;
+      return {
+        ...s,
+        scenario: r.scenario,
+        progression: r.progression,
+        mode: r.mode,
+        currentDecisionPointId: r.currentDecisionPointId,
+        view: "scenario",
+        showFeedback: false,
+        feedback: undefined,
+        result: undefined,
+        dashboard: undefined,
+        recovered: null,
+      };
+    });
+  }, [update]);
+
   const toReflection = useCallback(() => update((s) => ({ ...s, view: "reflection" })), [update]);
   const toAdoption = useCallback(() => update((s) => ({ ...s, view: "adoption" })), [update]);
 
   const resetProgress = useCallback(() => {
     app.store.userReset();
-    resumableRef.current = null;
     setState((s) => ({
       view: "home",
       locale: s.locale,
       mode: s.mode,
       showFeedback: false,
+      workshopInputs: {},
+      practiceDrafts: {},
       recovered: null,
     }));
   }, [app]);
 
   const dismissRecovered = useCallback(() => update((s) => ({ ...s, recovered: null })), [update]);
+
+  const setWorkshopInput = useCallback(
+    (slug: string, text: string) => {
+      update((s) => ({ ...s, workshopInputs: { ...s.workshopInputs, [slug]: text } }), { persist: true });
+    },
+    [update],
+  );
+
+  const setPracticeDraft = useCallback(
+    (practiceId: string, key: string, text: string) => {
+      update(
+        (s) => {
+          const prev = s.practiceDrafts[practiceId] ?? {};
+          return {
+            ...s,
+            practiceDrafts: { ...s.practiceDrafts, [practiceId]: { ...prev, [key]: text } },
+          };
+        },
+        { persist: true },
+      );
+    },
+    [update],
+  );
+
+  const clearPracticeDraft = useCallback(
+    (practiceId: string) => {
+      update(
+        (s) => {
+          const next = { ...s.practiceDrafts };
+          delete next[practiceId];
+          return { ...s, practiceDrafts: next };
+        },
+        { persist: true },
+      );
+    },
+    [update],
+  );
 
   return useMemo(
     () => ({
@@ -418,10 +564,14 @@ export function useAppState(app: Application): AppApi {
       proceed,
       goBack,
       retry,
+      resume,
       toReflection,
       toAdoption,
       resetProgress,
       dismissRecovered,
+      setWorkshopInput,
+      setPracticeDraft,
+      clearPracticeDraft,
     }),
     [
       state,
@@ -438,10 +588,14 @@ export function useAppState(app: Application): AppApi {
       proceed,
       goBack,
       retry,
+      resume,
       toReflection,
       toAdoption,
       resetProgress,
       dismissRecovered,
+      setWorkshopInput,
+      setPracticeDraft,
+      clearPracticeDraft,
     ],
   );
 }
