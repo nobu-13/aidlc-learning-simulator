@@ -1,19 +1,20 @@
-// App root — orchestrator を組み立て、view flow を routing する。
+// App root — orchestrator を組み立て、AppShell 内に view flow を routing する。
 import { useMemo } from "react";
 import { createApplication, type Application } from "./application-orchestrator.ts";
 import { browserStorage } from "../data/progress-store.ts";
 import { scenarioModules } from "../scenarios/index.ts";
 import { useAppState } from "./use-app-state.ts";
 import { ErrorBoundary } from "../ui/error-boundary.tsx";
+import { AppShell } from "../ui/app-shell.tsx";
+import { ResultDashboardView } from "../ui/result-dashboard.tsx";
+import { PracticeLibraryView, PracticeView } from "../ui/practice-views.tsx";
 import {
   AdoptionReviewView,
   ErrorView,
   FocusLibraryView,
   HomeView,
-  LangSwitcher,
   ModeSelectView,
   ReflectionView,
-  ResultView,
   ScenarioIntroView,
   ScenarioView,
 } from "../ui/app-views.tsx";
@@ -37,10 +38,9 @@ export function App(props: { application?: Application }): JSX.Element {
 
   return (
     <ErrorBoundary title={t("boundary.title")} body={t("boundary.body")}>
-      <main>
-        <LangSwitcher app={app} t={t} />
+      <AppShell app={app} t={t}>
         {renderView()}
-      </main>
+      </AppShell>
     </ErrorBoundary>
   );
 
@@ -52,12 +52,25 @@ export function App(props: { application?: Application }): JSX.Element {
         return <ModeSelectView app={app} t={t} />;
       case "focus-library":
         return <FocusLibraryView app={app} application={application} t={t} />;
+      case "practice-library":
+        return <PracticeLibraryView app={app} t={t} />;
+      case "practice":
+        return <PracticeView app={app} t={t} />;
       case "scenario-intro":
         return <ScenarioIntroView app={app} t={t} />;
       case "scenario":
         return <ScenarioView app={app} t={t} />;
       case "result":
-        return <ResultView app={app} t={t} />;
+        return app.state.dashboard !== undefined ? (
+          <ResultDashboardView
+            app={app}
+            application={application}
+            dashboard={app.state.dashboard}
+            t={t}
+          />
+        ) : (
+          <ErrorView app={app} application={application} t={t} />
+        );
       case "reflection":
         return <ReflectionView app={app} t={t} />;
       case "adoption":

@@ -13,6 +13,7 @@ import {
   type LocaleBundle,
 } from "../i18n/locale-resources.ts";
 import { chromeBundles } from "../i18n/messages.ts";
+import { practiceLocales } from "../domain/practice/practice-locale.ts";
 
 /** Scenario JSON 1 ファイル分の入力（raw + 各 locale の追加 bundle）。 */
 export interface ScenarioModule {
@@ -45,6 +46,9 @@ function mergedBundles(
 ): Readonly<Record<Locale, LocaleBundle>> {
   const merge = (locale: Locale): LocaleBundle => {
     const acc: Record<string, string> = { ...chromeBundles[locale] };
+    // practice の locale bundle をマージ（practice は scenario とは独立の教材）。
+    const practiceBundle = practiceLocales[locale];
+    for (const k of Object.keys(practiceBundle)) acc[k] = practiceBundle[k]!;
     for (const m of modules) {
       const b = m.localeBundles[locale];
       for (const k of Object.keys(b)) acc[k] = b[k]!;

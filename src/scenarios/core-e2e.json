@@ -7,7 +7,7 @@
     "summaryKey": "sc.core-e2e.summary",
     "learningObjectiveIds": ["lifecycle", "boundary", "approval", "evidence", "release-distinction"],
     "stageIds": ["st-req", "st-plan", "st-build", "st-release"],
-    "learningPointIds": ["lp-boundary", "lp-evidence", "lp-release"],
+    "learningPointIds": ["lp-ac", "lp-boundary", "lp-evidence", "lp-release"],
     "tags": ["core", "end-to-end"],
     "provenanceRefs": ["pv-spec-lifecycle"]
   },
@@ -22,7 +22,7 @@
       "decisionPointId": "dp-ac",
       "promptKey": "sc.core-e2e.dp-ac.prompt",
       "optionIds": ["o-ac-clarify", "o-ac-skip"],
-      "learningPointRefs": [],
+      "learningPointRefs": ["lp-ac"],
       "important": true,
       "provenanceRefs": ["pv-spec-ac"]
     },
@@ -63,6 +63,7 @@
     { "optionId": "o-rel-conflate", "labelKey": "sc.core-e2e.o-rel-conflate.label", "effectRuleRefs": ["er-ab-bad", "er-risk-remain"], "provenanceRefs": ["pv-spec-release"], "nextRef": "terminal" }
   ],
   "learningPoints": [
+    { "learningPointId": "lp-ac", "conceptId": "acceptance-criteria", "titleKey": "sc.core-e2e.lp-ac.title", "bodyKey": "sc.core-e2e.lp-ac.body", "provenanceRefs": ["pv-spec-ac"], "betterAlternativeRef": "o-ac-clarify" },
     { "learningPointId": "lp-boundary", "conceptId": "delegation-boundary", "titleKey": "sc.core-e2e.lp-boundary.title", "bodyKey": "sc.core-e2e.lp-boundary.body", "provenanceRefs": ["pv-spec-boundary"], "betterAlternativeRef": "o-del-agent-lowrisk" },
     { "learningPointId": "lp-evidence", "conceptId": "evidence-testing", "titleKey": "sc.core-e2e.lp-evidence.title", "bodyKey": "sc.core-e2e.lp-evidence.body", "provenanceRefs": ["pv-spec-testing"] },
     { "learningPointId": "lp-release", "conceptId": "release-distinction", "titleKey": "sc.core-e2e.lp-release.title", "bodyKey": "sc.core-e2e.lp-release.body", "provenanceRefs": ["pv-spec-release"] }

@@ -11,8 +11,16 @@ const records: DecisionRecord[] = [
 ];
 const result = buildLearningResult(scenario, sessionId, records);
 
-// 決定的な locale bundle（key をそのまま返さず固定文言に解決する簡易 stub）。
-const text = (key: string): string => `[${key}]`;
+// 決定的な locale bundle stub。composer が参照する chrome key は実文言に解決し、
+// scenario 固有 key は `[key]` で返す（決定性の検証には十分）。
+const CHROME: Record<string, string> = {
+  "adoption.sheet.disclaimer":
+    "Educational Output: material for team discussion, not a finalized design.",
+  "adoption.userAuthoredLabel": "Your input (user-authored)",
+  "adoption.decisionTimelineHeading": "Decision Timeline",
+  "adoption.userNotesHeading": "Your Notes (user-authored)",
+};
+const text = (key: string): string => CHROME[key] ?? `[${key}]`;
 
 describe("composeAdoptionSheet", () => {
   it("見出しが FR8.2 の順・表記で出力される", () => {
