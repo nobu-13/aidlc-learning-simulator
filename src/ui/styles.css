@@ -169,8 +169,8 @@ button.cta {
 }
 .lang-switcher select {
   font: inherit;
-  padding: 0.3rem;
-  min-height: 40px;
+  padding: 0.4rem 0.5rem;
+  min-height: 44px; /* UX-MOB-001: tap target >= 44px */
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
 }
@@ -851,6 +851,11 @@ input[type="text"] {
   .shell-back {
     min-height: 44px;
     flex: 1 1 auto;
+  }
+  /* UX-MOB-001: mobile でも Language 選択の tap target を 44px 維持（header は崩さない）。 */
+  .lang-switcher select {
+    min-height: 44px;
+    width: 100%;
   }
   /* content が横にはみ出さない。 */
   .shell-main {

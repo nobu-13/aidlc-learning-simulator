@@ -3,6 +3,7 @@
 // domain logic は持たず、useJourneyState の API を呼ぶ。a11y: semantic HTML / aria-live / 一意 label。
 import { useEffect, useMemo, useState } from "react";
 import type { JourneyApi } from "../app/use-journey-state.ts";
+import type { FeedbackItemViewModel } from "../domain/journey/feedback-viewmodel.ts";
 import type { I18nResolver } from "../i18n/locale-resources.ts";
 import type { ContributionLevel, DimensionId } from "../domain/entities.ts";
 import { DIMENSION_IDS } from "../domain/entities.ts";
@@ -51,6 +52,56 @@ function levelLabel(level: ContributionLevel, t: T): string {
   return t(`rc3.rating.${level}`);
 }
 const APPROVALS: readonly ApprovalDecision[] = ["approve", "approve-with-conditions", "return", "block"];
+
+/**
+ * UX-FT-001: Feedback learning event の traceability を「常に」全項目説明する（field を消さない）。
+ * downstream / consequence が存在しないケースは human-readable な明示的 N/A を表示する。
+ * false positive は false 用の Why / Consequence / Revisit 文言を使う。
+ * Ground Truth semantics は変更しない（表示の正規化のみ）。
+ */
+function FeedbackTraceability(props: { vm: FeedbackItemViewModel; t: T; testPrefix: string }): JSX.Element {
+  const { vm, t, testPrefix } = props;
+  const isFalse = vm.resultType === "false";
+  // affected/consequence の解決。missing のときは result type 別の明示的 N/A。
+  const affectedText =
+    vm.affectedLaterStepId !== undefined
+      ? t(`rc3.journey.step.${vm.affectedLaterStepId}`)
+      : t("rc3.trace.affected.na");
+  const consequenceText =
+    vm.consequenceKey !== undefined
+      ? t(vm.consequenceKey)
+      : isFalse
+        ? t("rc3.trace.consequence.na.false")
+        : t("rc3.trace.consequence.na.missed");
+  const whyText =
+    vm.whyItMattersKey !== undefined
+      ? t(vm.whyItMattersKey)
+      : isFalse
+        ? t("rc3.trace.why.false")
+        : t("rc3.trace.item"); // defect rationale が無い防御ケース（通常発生しない）
+  const originText =
+    vm.originStepId !== undefined ? t(`rc3.journey.step.${vm.originStepId}`) : t("rc3.trace.origin.na");
+
+  return (
+    <div className="trace-fields" data-testid={`${testPrefix}-trace`}>
+      <div className="muted" data-testid={`${testPrefix}-trace-severity`}>
+        {t("rc3.trace.severity")}: {vm.severity !== undefined ? t(`rc3.sev.${vm.severity}`) : t("rc3.trace.severity.na")}
+      </div>
+      <div className="muted" data-testid={`${testPrefix}-trace-why`}>
+        {t("rc3.trace.why")}: {whyText}
+      </div>
+      <div className="muted" data-testid={`${testPrefix}-trace-origin`}>
+        {t("rc3.trace.origin")}: {originText}
+      </div>
+      <div className="muted" data-testid={`${testPrefix}-trace-affected`}>
+        {t("rc3.trace.affected")}: {affectedText}
+      </div>
+      <div className="muted" data-testid={`${testPrefix}-trace-consequence`}>
+        {t("rc3.trace.consequence")}: {consequenceText}
+      </div>
+    </div>
+  );
+}
 
 /** RC3 Journey の現在位置を示す Stepper（既存 lifecycle-stepper と同思想・RC3 専用）。 */
 function JourneyStepper(props: { journey: JourneyApi; t: T }): JSX.Element {
@@ -468,15 +519,9 @@ export function JourneyFeedbackView(props: { journey: JourneyApi; t: T }): JSX.E
             {missed.map((f, i) => (
               <li key={`m-${i}`}>
                 <strong>{t(f.itemTitleKey)}</strong>
-                {f.severity !== undefined ? (
-                  <span className="muted"> — {t("rc3.review.severity")}: {t(`rc3.sev.${f.severity}`)}</span>
-                ) : null}
                 <div className="muted">{t(f.itemBodyKey)}</div>
-                {f.whyItMattersKey !== undefined ? (
-                  <div>
-                    <strong>{t("rc3.fb.whyMatters")}:</strong> {t(f.whyItMattersKey)}
-                  </div>
-                ) : null}
+                {/* UX-FT-001: 全 traceability を常に表示（field 消失なし・明示的 N/A）。 */}
+                <FeedbackTraceability vm={f} t={t} testPrefix={`feedback-missed-${i}`} />
               </li>
             ))}
           </ul>
@@ -491,6 +536,8 @@ export function JourneyFeedbackView(props: { journey: JourneyApi; t: T }): JSX.E
               <li key={`f-${i}`}>
                 <strong>{t(f.itemTitleKey)}</strong>
                 <div className="muted">{t(f.itemBodyKey)}</div>
+                {/* UX-FT-001: false positive も「なぜ FP か / どこで判断 / downstream 該当有無」を常に説明。 */}
+                <FeedbackTraceability vm={f} t={t} testPrefix={`feedback-false-${i}`} />
               </li>
             ))}
           </ul>
@@ -738,37 +785,59 @@ export function JourneyResultView(props: { journey: JourneyApi; t: T; onToGym: (
             {/* F4: finding-level history（何を間違えたか）。human-readable のみ。 */}
             {history.entries.length > 0 ? (
               <ul className="history-findings" data-testid="history-findings">
-                {history.entries.map((e, i) => (
-                  <li key={i} className="history-entry" data-testid={`history-entry-${i}`}>
-                    <strong>
-                      {t(`rc3.history.mistake.${e.mistakeType}`)}: {t(e.itemTitleKey)}
-                      {e.severity !== undefined ? (
-                        <span className="muted"> ({t(`rc3.sev.${e.severity}`)})</span>
-                      ) : null}
-                    </strong>
-                    <span className="muted">{t(e.itemBodyKey)}</span>
-                    {e.whyItMattersKey !== undefined ? (
-                      <span className="muted">
-                        {t("rc3.result.causal.why")}: {t(e.whyItMattersKey)}
+                {history.entries.map((e, i) => {
+                  // UX-RH-001: 全 event を同一 schema で正規化表示。field を消さず明示的 N/A を出す。
+                  const isFalse = e.mistakeType === "false-positive";
+                  const severityText =
+                    e.severity !== undefined ? t(`rc3.sev.${e.severity}`) : t("rc3.trace.severity.na");
+                  const whyText =
+                    e.whyItMattersKey !== undefined
+                      ? t(e.whyItMattersKey)
+                      : isFalse
+                        ? t("rc3.trace.why.false")
+                        : t("rc3.trace.item");
+                  const originText =
+                    e.originStepId !== undefined
+                      ? t(`rc3.journey.step.${e.originStepId}`)
+                      : t("rc3.trace.origin.na");
+                  const consequenceText =
+                    e.consequenceKey !== undefined
+                      ? t(e.consequenceKey)
+                      : isFalse
+                        ? t("rc3.trace.consequence.na.false")
+                        : t("rc3.trace.consequence.na.missed");
+                  const revisitText =
+                    e.revisitStepId !== undefined
+                      ? t(`rc3.journey.step.${e.revisitStepId}`)
+                      : isFalse
+                        ? t("rc3.trace.revisit.false")
+                        : e.originStepId !== undefined
+                          ? t(`rc3.journey.step.${e.originStepId}`)
+                          : t("rc3.trace.origin.na");
+                  return (
+                    <li key={i} className="history-entry" data-testid={`history-entry-${i}`}>
+                      <strong>
+                        {t(`rc3.history.mistake.${e.mistakeType}`)}: {t(e.itemTitleKey)}
+                      </strong>
+                      <span className="muted">{t(e.itemBodyKey)}</span>
+                      <span className="muted" data-testid={`history-entry-${i}-severity`}>
+                        {t("rc3.trace.severity")}: {severityText}
                       </span>
-                    ) : null}
-                    {e.originStepId !== undefined ? (
-                      <span className="muted">
-                        {t("rc3.result.causal.origin")}: {t(`rc3.journey.step.${e.originStepId}`)}
+                      <span className="muted" data-testid={`history-entry-${i}-why`}>
+                        {t("rc3.trace.why")}: {whyText}
                       </span>
-                    ) : null}
-                    {e.consequenceKey !== undefined ? (
-                      <span className="muted">
-                        {t("rc3.result.causal.consequence")}: {t(e.consequenceKey)}
+                      <span className="muted" data-testid={`history-entry-${i}-origin`}>
+                        {t("rc3.trace.origin")}: {originText}
                       </span>
-                    ) : null}
-                    {e.revisitStepId !== undefined ? (
-                      <span className="revisit">
-                        {t("rc3.result.causal.revisit")}: {t(`rc3.journey.step.${e.revisitStepId}`)}
+                      <span className="muted" data-testid={`history-entry-${i}-consequence`}>
+                        {t("rc3.trace.consequence")}: {consequenceText}
                       </span>
-                    ) : null}
-                  </li>
-                ))}
+                      <span className="revisit" data-testid={`history-entry-${i}-revisit`}>
+                        {t("rc3.trace.revisit")}: {revisitText}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             ) : null}
           </>
