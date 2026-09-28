@@ -65,9 +65,10 @@ describe("P1-1 Adoption answer leakage", () => {
     await user.click(screen.getByTestId("completion-approve"));
     await user.click(screen.getByTestId("interstitial-continue"));
     await user.click(screen.getByTestId("release-approve"));
-    // result で評価（diagnostics / dimensions）が開示される。
+    // result で評価（dimensions / final state / learning history）が開示される。
     expect(screen.getByTestId("journey-dimensions")).toBeInTheDocument();
-    expect(screen.getByTestId("result-missed")).toBeInTheDocument();
+    expect(screen.getByTestId("result-final-state")).toBeInTheDocument();
+    expect(screen.getByTestId("result-history")).toBeInTheDocument();
   });
 });
 

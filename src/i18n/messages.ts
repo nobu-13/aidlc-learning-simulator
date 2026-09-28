@@ -291,6 +291,49 @@ export const ja: LocaleBundle = {
   "rc3.fb.next": "次の工程へ",
   "rc3.fb.rework": "差し戻す",
   "rc3.fb.noDefectHere": "この成果物に問題はありませんでした。承認が妥当です。",
+  "rc3.fb.affectedStep": "影響する後工程",
+  "rc3.fb.whatHappens": "何が起きるか",
+  "rc3.history.mistake.missed": "見逃し",
+  "rc3.history.mistake.false-positive": "誤指摘",
+  "rc3.fb.unknownItem.title": "レビュー項目",
+  "rc3.fb.unknownItem.body": "この項目の詳細は表示できません。",
+  "rc3.fb.noIssuesFound": "指摘・見逃し・誤指摘はありませんでした。",
+
+  // Quoted heading（mode 別・H1 P2-1）
+  "rc3.review.quoted.sample": "サンプルプロジェクトからの引用（採点対象外）",
+  "rc3.review.quoted.user": "あなたの記述からの引用（採点対象外）",
+
+  // Rating labels（N4 P2-3）
+  "rc3.rating.strong-positive": "優れている",
+  "rc3.rating.positive": "良好",
+  "rc3.rating.neutral": "中立",
+  "rc3.rating.negative": "要注意",
+  "rc3.rating.strong-negative": "重大な懸念",
+
+  // Completed journey home（N6 P2-5）
+  "rc3.home.completed.title": "完了したジャーニーがあります",
+  "rc3.home.completed.desc": "前回のジャーニーは完了しています。結果を見直すか、新しいジャーニーを始められます。",
+  "rc3.home.completed.review": "結果を見直す",
+
+  // Result: learning history + decisions（N3/N9）
+  "rc3.result.finalState.title": "最終レビュー状態",
+  "rc3.result.finalState.clean": "重大な問題はすべて解決済みです。",
+  "rc3.result.history.title": "ジャーニー学習履歴",
+  "rc3.result.history.missed": "見逃した問題（延べ）",
+  "rc3.result.history.false": "誤って指摘した項目（延べ）",
+  "rc3.result.history.rework": "手戻り回数",
+  "rc3.result.history.none": "学習履歴上、見逃し・誤指摘・手戻りはありませんでした。",
+  "rc3.result.decisions.title": "承認判断",
+  "rc3.result.decisions.completion": "工程完了承認",
+  "rc3.result.decisions.release": "リリース承認",
+  "rc3.result.decisions.notReached": "未到達",
+  "rc3.decision.approve": "承認",
+  "rc3.decision.approve-with-conditions": "条件付き承認",
+  "rc3.decision.return": "差し戻し",
+  "rc3.decision.block": "却下",
+
+  // Gym IA subtitle（N8 P2-7）
+  "rc3.gym.secondary": "特定の AI-DLC スキルを個別に練習する補助エリアです（メインのジャーニーとは別です）。",
 
   // Approvals
   "rc3.completion.title": "工程完了承認",
@@ -777,6 +820,44 @@ export const en: LocaleBundle = {
   "rc3.fb.next": "Next step",
   "rc3.fb.rework": "Return for rework",
   "rc3.fb.noDefectHere": "This artifact had no issues. Approving was appropriate.",
+  "rc3.fb.affectedStep": "Affected later step",
+  "rc3.fb.whatHappens": "What happens",
+  "rc3.history.mistake.missed": "Missed",
+  "rc3.history.mistake.false-positive": "False flag",
+  "rc3.fb.unknownItem.title": "Review item",
+  "rc3.fb.unknownItem.body": "Details for this item cannot be shown.",
+  "rc3.fb.noIssuesFound": "No caught, missed, or false-flagged items.",
+
+  "rc3.review.quoted.sample": "Quoted from the sample project (not scored)",
+  "rc3.review.quoted.user": "Quoted from your input (not scored)",
+
+  "rc3.rating.strong-positive": "Strong",
+  "rc3.rating.positive": "Adequate",
+  "rc3.rating.neutral": "Neutral",
+  "rc3.rating.negative": "Needs attention",
+  "rc3.rating.strong-negative": "Critical concern",
+
+  "rc3.home.completed.title": "You have a completed journey",
+  "rc3.home.completed.desc": "Your previous journey is complete. You can review the result or start a new journey.",
+  "rc3.home.completed.review": "Review result",
+
+  "rc3.result.finalState.title": "Final review state",
+  "rc3.result.finalState.clean": "All critical findings are resolved.",
+  "rc3.result.history.title": "Journey learning history",
+  "rc3.result.history.missed": "Missed findings (cumulative)",
+  "rc3.result.history.false": "False flags (cumulative)",
+  "rc3.result.history.rework": "Rework count",
+  "rc3.result.history.none": "No missed findings, false flags, or rework in the learning history.",
+  "rc3.result.decisions.title": "Approval decisions",
+  "rc3.result.decisions.completion": "Completion Approval",
+  "rc3.result.decisions.release": "Release Approval",
+  "rc3.result.decisions.notReached": "Not reached",
+  "rc3.decision.approve": "Approve",
+  "rc3.decision.approve-with-conditions": "Approve with conditions",
+  "rc3.decision.return": "Return",
+  "rc3.decision.block": "Block",
+
+  "rc3.gym.secondary": "A secondary area for focused practice of specific AI-DLC skills (separate from the main journey).",
 
   "rc3.completion.title": "Completion Approval",
   "rc3.completion.desc": "Decide whether AI-DLC stages, artifacts, and evidence meet completion criteria. This is separate from release.",

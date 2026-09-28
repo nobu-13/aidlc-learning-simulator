@@ -1,7 +1,7 @@
 // RC3 Journey views（presentation・domain と分離）。
 // Guided / Simulation / Adoption の体験差は JourneyModePolicy を参照して表現する。
 // domain logic は持たず、useJourneyState の API を呼ぶ。a11y: semantic HTML / aria-live / 一意 label。
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JourneyApi } from "../app/use-journey-state.ts";
 import type { I18nResolver } from "../i18n/locale-resources.ts";
 import type { ContributionLevel, DimensionId } from "../domain/entities.ts";
@@ -30,7 +30,7 @@ const GATE_OPTIONS: readonly GateDecision[] = [
 ];
 const SEVERITIES: readonly Severity[] = ["low", "medium", "high"];
 
-/** ContributionLevel を記号へ（Result / Completion summary 共通）。 */
+/** ContributionLevel を記号へ（Result / Completion summary 共通・補助表示）。 */
 function levelSymbolOf(level: ContributionLevel): string {
   switch (level) {
     case "strong-positive":
@@ -44,6 +44,11 @@ function levelSymbolOf(level: ContributionLevel): string {
     default:
       return "0";
   }
+}
+
+/** ContributionLevel を human-readable label へ（N4 P2-3）。symbol は補助。 */
+function levelLabel(level: ContributionLevel, t: T): string {
+  return t(`rc3.rating.${level}`);
 }
 const APPROVALS: readonly ApprovalDecision[] = ["approve", "approve-with-conditions", "return", "block"];
 
@@ -85,7 +90,16 @@ export function JourneyHomeView(props: { journey: JourneyApi; t: T; onExitToGym:
         <p className="home-tagline">{t("rc3.home.desc")}</p>
       </div>
 
-      {journey.state.resumable ? (
+      {/* N6 P2-5: 完了済み journey は in-progress resume として扱わない。 */}
+      {journey.state.journeyComplete ? (
+        <div className="card continue-card" data-testid="journey-completed-card">
+          <h2>{t("rc3.home.completed.title")}</h2>
+          <p className="muted">{t("rc3.home.completed.desc")}</p>
+          <button className="secondary" data-testid="journey-review-result" onClick={() => journey.resume()}>
+            {t("rc3.home.completed.review")}
+          </button>
+        </div>
+      ) : journey.state.resumable ? (
         <div className="card continue-card" data-testid="journey-resume-card">
           <h2>{t("rc3.resume.title")}</h2>
           <p className="muted">{t("rc3.resume.desc")}</p>
@@ -122,9 +136,10 @@ export function JourneyHomeView(props: { journey: JourneyApi; t: T; onExitToGym:
         </ul>
       </div>
 
-      <div className="card">
+      {/* N8 P2-7: Training Gym は secondary area であることを明示。 */}
+      <div className="card gym-secondary" data-testid="gym-secondary-card">
         <h2>{t("rc3.gym.title")}</h2>
-        <p className="muted">{t("rc3.gym.desc")}</p>
+        <p className="muted">{t("rc3.gym.secondary")}</p>
         <button className="secondary" data-testid="to-gym" onClick={onExitToGym}>
           {t("rc3.gym.title")}
         </button>
@@ -191,9 +206,54 @@ export function JourneySetupView(props: { journey: JourneyApi; t: T }): JSX.Elem
 export function JourneyReviewView(props: { journey: JourneyApi; t: T }): JSX.Element {
   const { journey, t } = props;
   const artifact = useMemo(() => journey.currentArtifact(), [journey]);
-  const [selected, setSelected] = useState<Record<string, Severity | undefined>>({});
-  const [gate, setGate] = useState<GateDecision>("approve");
-  const [note, setNote] = useState("");
+  // G1/F7: current step の入力を hydration する。優先順位:
+  //   1) 未 submit の下書き（reviewDrafts）で artifactId が一致するもの
+  //   2) 確定済み review（reviews）で artifactId が一致するもの
+  //   3) 空
+  // artifactId をキーにするので、rework で revision が上がると（下書き/review とも clear されるため）空に戻る。
+  const savedReview = journey.state.reviews[artifact.journeyStepId];
+  const savedMatches = savedReview !== undefined && savedReview.artifactId === artifact.artifactId;
+  const savedDraft = journey.state.reviewDrafts[artifact.journeyStepId];
+  const draftMatches = savedDraft !== undefined && savedDraft.artifactId === artifact.artifactId;
+  // hydration source: 下書き優先、なければ確定 review。
+  const source =
+    draftMatches && savedDraft !== undefined
+      ? savedDraft
+      : savedMatches && savedReview !== undefined
+        ? savedReview
+        : undefined;
+  const initSelected = (): Record<string, Severity | undefined> => {
+    if (source === undefined) return {};
+    const out: Record<string, Severity | undefined> = {};
+    for (const f of source.findings) out[f.itemId] = f.severity;
+    return out;
+  };
+  const [selected, setSelected] = useState<Record<string, Severity | undefined>>(initSelected);
+  const [gate, setGate] = useState<GateDecision>(source !== undefined ? source.gateDecision : "approve");
+  const [note, setNote] = useState(source !== undefined ? (source.noteText ?? "") : "");
+
+  // artifactId が変わったら（rework で revision 変化 / resume で別 step）hydration し直す。
+  useEffect(() => {
+    setSelected(initSelected());
+    setGate(source !== undefined ? source.gateDecision : "approve");
+    setNote(source !== undefined ? (source.noteText ?? "") : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artifact.artifactId]);
+
+  // G1: 入力（finding / severity / gate / note）が変わるたびに未 submit 下書きを persist する。
+  // 初回 hydration 直後の再書き込みは無害（同一値）。artifactId を必ず添えて誤 hydrate を防ぐ。
+  useEffect(() => {
+    const findings: ReviewFinding[] = Object.entries(selected).map(([itemId, severity]) =>
+      severity !== undefined ? { itemId, severity } : { itemId },
+    );
+    journey.setReviewDraft({
+      artifactId: artifact.artifactId,
+      findings,
+      gateDecision: gate,
+      ...(note.trim().length > 0 ? { noteText: note } : {}),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, gate, note, artifact.artifactId]);
 
   const toggle = (itemId: string): void => {
     setSelected((prev) => {
@@ -233,7 +293,7 @@ export function JourneyReviewView(props: { journey: JourneyApi; t: T }): JSX.Ele
 
       {Object.keys(artifact.quotedUserText).length > 0 ? (
         <div className="card quoted" data-testid="review-quoted">
-          <h2>{t("rc3.review.quoted")}</h2>
+          <h2>{t(journey.state.mode === "guided" ? "rc3.review.quoted.sample" : "rc3.review.quoted.user")}</h2>
           <ul>
             {Object.entries(artifact.quotedUserText).map(([field, text]) =>
               text !== undefined && text.length > 0 ? (
@@ -360,49 +420,78 @@ export function JourneyFeedbackView(props: { journey: JourneyApi; t: T }): JSX.E
     );
   }
 
-  const caught = ev.findingOutcomes.filter((f) => f.kind === "caught");
-  const missed = ev.findingOutcomes.filter((f) => f.kind === "missed");
-  const falseFlags = ev.findingOutcomes.filter((f) => f.kind === "false");
-  // P1-3: must-fix は hook が判定した state.mustFix（high 見逃し + too-lenient + Simulation）を使う。
+  // P1-1 H2/H4: human-readable view model（internal ID を出さない）。
+  const vm = journey.feedbackViewModel();
+  const caught = vm?.caught ?? [];
+  const missed = vm?.missed ?? [];
+  const falseFlags = vm?.falsePositives ?? [];
+  // P1-3/P1-4: must-fix は hook が判定した state.mustFix（high 見逃し + too-lenient + Simulation）を使う。
   const mustFix = journey.state.mustFix;
+  const noIssues = ev.metrics.defectCount === 0 && caught.length === 0 && falseFlags.length === 0;
 
   return (
     <section aria-labelledby="jf-h" className="journey-feedback">
       <h1 id="jf-h">{t("scenario.feedback.title")}</h1>
 
-      {!ev.hadDefects && caught.length === 0 && falseFlags.length === 0 ? (
+      {noIssues ? (
         <p className="feedback-clean" data-testid="feedback-clean">
           {t("rc3.fb.noDefectHere")}
         </p>
       ) : null}
 
-      <div className="card">
-        <h2>{t("rc3.fb.caught")}</h2>
-        <ul data-testid="feedback-caught">
-          {caught.map((f) => (
-            <li key={f.itemId}>{f.rationaleKey !== undefined ? t(f.rationaleKey) : f.itemId}</li>
-          ))}
-        </ul>
-      </div>
+      {/* P3 N10: 空 section は出さない（caught があるときだけ表示）。 */}
+      {caught.length > 0 ? (
+        <div className="card">
+          <h2>{t("rc3.fb.caught")}</h2>
+          <ul data-testid="feedback-caught">
+            {caught.map((f, i) => (
+              <li key={`c-${i}`}>
+                <strong>{t(f.itemTitleKey)}</strong>
+                {f.severity !== undefined ? (
+                  <span className="muted"> — {t("rc3.review.severity")}: {t(`rc3.sev.${f.severity}`)}</span>
+                ) : null}
+                {f.whyItMattersKey !== undefined ? (
+                  <div className="muted">
+                    {t("rc3.fb.whyMatters")}: {t(f.whyItMattersKey)}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-      <div className="card">
-        <h2>{t("rc3.fb.missed")}</h2>
-        <ul data-testid="feedback-missed">
-          {missed.map((f) => (
-            <li key={f.itemId}>
-              <strong>{t("rc3.fb.whyMatters")}:</strong>{" "}
-              {f.rationaleKey !== undefined ? t(f.rationaleKey) : f.itemId}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {missed.length > 0 ? (
+        <div className="card">
+          <h2>{t("rc3.fb.missed")}</h2>
+          <ul data-testid="feedback-missed">
+            {missed.map((f, i) => (
+              <li key={`m-${i}`}>
+                <strong>{t(f.itemTitleKey)}</strong>
+                {f.severity !== undefined ? (
+                  <span className="muted"> — {t("rc3.review.severity")}: {t(`rc3.sev.${f.severity}`)}</span>
+                ) : null}
+                <div className="muted">{t(f.itemBodyKey)}</div>
+                {f.whyItMattersKey !== undefined ? (
+                  <div>
+                    <strong>{t("rc3.fb.whyMatters")}:</strong> {t(f.whyItMattersKey)}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {falseFlags.length > 0 ? (
         <div className="card">
           <h2>{t("rc3.fb.false")}</h2>
           <ul data-testid="feedback-false">
-            {falseFlags.map((f) => (
-              <li key={f.itemId}>{f.itemId}</li>
+            {falseFlags.map((f, i) => (
+              <li key={`f-${i}`}>
+                <strong>{t(f.itemTitleKey)}</strong>
+                <div className="muted">{t(f.itemBodyKey)}</div>
+              </li>
             ))}
           </ul>
         </div>
@@ -412,15 +501,40 @@ export function JourneyFeedbackView(props: { journey: JourneyApi; t: T }): JSX.E
         {t(`rc3.fb.gate.${ev.gateQuality}`)}
       </p>
 
-      {policy.showWouldHaveConsequence && missed.length > 0 ? (
-        <div className="card would-have" data-testid="feedback-would-have">
+      {/* P1-2 H5: consequence は fail-closed。heading だけの空カードは出さない。 */}
+      {(policy.showWouldHaveConsequence || policy.explainConsequence) && missed.length > 0 ? (
+        <div
+          className={`card ${policy.showWouldHaveConsequence ? "would-have" : "explain-consequence"}`}
+          data-testid={policy.showWouldHaveConsequence ? "feedback-would-have" : "feedback-explain"}
+        >
           <h2>{t("rc3.fb.wouldHave")}</h2>
-        </div>
-      ) : null}
-
-      {policy.explainConsequence && missed.length > 0 ? (
-        <div className="card explain-consequence" data-testid="feedback-explain">
-          <h2>{t("rc3.fb.wouldHave")}</h2>
+          <ul>
+            {missed.map((f, i) => (
+              <li key={`cons-${i}`}>
+                <strong>{t(f.itemTitleKey)}</strong>
+                {/* F5: 実際に後工程で何が起きるか（consequenceKey）。無い場合は body で fail-closed。 */}
+                <div>
+                  <strong>{t("rc3.fb.whatHappens")}:</strong>{" "}
+                  {f.consequenceKey !== undefined ? t(f.consequenceKey) : t(f.itemBodyKey)}
+                </div>
+                {f.whyItMattersKey !== undefined ? (
+                  <div className="muted">
+                    {t("rc3.result.causal.why")}: {t(f.whyItMattersKey)}
+                  </div>
+                ) : null}
+                {f.originStepId !== undefined ? (
+                  <div className="muted">
+                    {t("rc3.consequence.origin")}: {t(`rc3.journey.step.${f.originStepId}`)}
+                  </div>
+                ) : null}
+                {f.affectedLaterStepId !== undefined ? (
+                  <div className="muted">
+                    {t("rc3.fb.affectedStep")}: {t(`rc3.journey.step.${f.affectedLaterStepId}`)}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -476,7 +590,8 @@ export function JourneyCompletionView(props: { journey: JourneyApi; t: T }): JSX
             {t("rc3.completion.summary.unresolved")}: {summary.unresolvedFindingCount}
           </li>
           <li data-testid="completion-remaining-risk">
-            {t("rc3.completion.summary.remainingRisk")}: {levelSymbolOf(summary.remainingRisksLevel)}
+            {t("rc3.completion.summary.remainingRisk")}: {levelLabel(summary.remainingRisksLevel, t)}{" "}
+            <span aria-hidden="true" className="muted">({levelSymbolOf(summary.remainingRisksLevel)})</span>
           </li>
           <li data-testid="completion-rework">
             {t("rc3.completion.summary.reworkCount")}: {summary.reworkCount}
@@ -565,10 +680,11 @@ export function JourneyResultView(props: { journey: JourneyApi; t: T; onToGym: (
   const result = useMemo(() => journey.finalResult(), [journey]);
   const causal = useMemo(() => journey.causalSummary(), [journey]);
   const policy = journey.policy;
-  const levelSymbol = (id: DimensionId): string => {
-    const o = result.dimensionOutcomes.find((x) => x.dimensionId === id);
-    return levelSymbolOf(o?.level ?? "neutral");
-  };
+  const history = journey.state.learningHistory;
+  const reworkCount = journey.reworkCount();
+  const dimLevel = (id: DimensionId): ContributionLevel =>
+    result.dimensionOutcomes.find((x) => x.dimensionId === id)?.level ?? "neutral";
+  const levelSymbol = (id: DimensionId): string => levelSymbolOf(dimLevel(id));
 
   return (
     <section aria-labelledby="jres-h" className="journey-result">
@@ -587,19 +703,94 @@ export function JourneyResultView(props: { journey: JourneyApi; t: T; onToGym: (
             <li key={id} className="dimension-row">
               <span>{t(`dimension.${id}`)}</span>
               <span className="dimension-level" data-testid={`journey-dim-${id}`}>
-                {levelSymbol(id)}
+                {/* N4: human-readable label を主表示、symbol は補助。 */}
+                {levelLabel(dimLevel(id), t)}{" "}
+                <span aria-hidden="true" className="muted">
+                  ({levelSymbol(id)})
+                </span>
               </span>
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="card">
-        <h2>{t("rc3.diag.title")}</h2>
+      {/* N3 P1-5: 最終状態と学習履歴を分離。current state != learning history。 */}
+      <div className="card" data-testid="result-final-state">
+        <h2>{t("rc3.result.finalState.title")}</h2>
+        <p>
+          {result.totalMissed === 0
+            ? t("rc3.result.finalState.clean")
+            : `${t("rc3.result.missed")}: ${result.totalMissed}`}
+        </p>
+      </div>
+
+      <div className="card" data-testid="result-history">
+        <h2>{t("rc3.result.history.title")}</h2>
+        {history.entries.length === 0 && history.totalMissed === 0 && history.totalFalse === 0 && reworkCount === 0 ? (
+          <p className="muted">{t("rc3.result.history.none")}</p>
+        ) : (
+          <>
+            <ul className="history-aggregate">
+              <li data-testid="history-missed">{t("rc3.result.history.missed")}: {history.totalMissed}</li>
+              <li data-testid="history-false">{t("rc3.result.history.false")}: {history.totalFalse}</li>
+              <li data-testid="history-rework">{t("rc3.result.history.rework")}: {reworkCount}</li>
+            </ul>
+            {/* F4: finding-level history（何を間違えたか）。human-readable のみ。 */}
+            {history.entries.length > 0 ? (
+              <ul className="history-findings" data-testid="history-findings">
+                {history.entries.map((e, i) => (
+                  <li key={i} className="history-entry" data-testid={`history-entry-${i}`}>
+                    <strong>
+                      {t(`rc3.history.mistake.${e.mistakeType}`)}: {t(e.itemTitleKey)}
+                      {e.severity !== undefined ? (
+                        <span className="muted"> ({t(`rc3.sev.${e.severity}`)})</span>
+                      ) : null}
+                    </strong>
+                    <span className="muted">{t(e.itemBodyKey)}</span>
+                    {e.whyItMattersKey !== undefined ? (
+                      <span className="muted">
+                        {t("rc3.result.causal.why")}: {t(e.whyItMattersKey)}
+                      </span>
+                    ) : null}
+                    {e.originStepId !== undefined ? (
+                      <span className="muted">
+                        {t("rc3.result.causal.origin")}: {t(`rc3.journey.step.${e.originStepId}`)}
+                      </span>
+                    ) : null}
+                    {e.consequenceKey !== undefined ? (
+                      <span className="muted">
+                        {t("rc3.result.causal.consequence")}: {t(e.consequenceKey)}
+                      </span>
+                    ) : null}
+                    {e.revisitStepId !== undefined ? (
+                      <span className="revisit">
+                        {t("rc3.result.causal.revisit")}: {t(`rc3.journey.step.${e.revisitStepId}`)}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      {/* N9 P2-8: Completion / Release の最終 Decision を human-readable 表示。 */}
+      <div className="card" data-testid="result-decisions">
+        <h2>{t("rc3.result.decisions.title")}</h2>
         <ul>
-          <li data-testid="result-caught">{t("rc3.result.caught")}: {result.totalCaught}</li>
-          <li data-testid="result-missed">{t("rc3.result.missed")}: {result.totalMissed}</li>
-          <li data-testid="result-false">{t("rc3.result.false")}: {result.totalFalse}</li>
+          <li data-testid="result-decision-completion">
+            {t("rc3.result.decisions.completion")}:{" "}
+            {journey.state.completionDecision !== undefined
+              ? t(`rc3.decision.${journey.state.completionDecision}`)
+              : t("rc3.result.decisions.notReached")}
+          </li>
+          <li data-testid="result-decision-release">
+            {t("rc3.result.decisions.release")}:{" "}
+            {journey.state.releaseDecision !== undefined
+              ? t(`rc3.decision.${journey.state.releaseDecision}`)
+              : t("rc3.result.decisions.notReached")}
+          </li>
         </ul>
       </div>
 
@@ -640,7 +831,8 @@ export function JourneyResultView(props: { journey: JourneyApi; t: T; onToGym: (
             {causal.map((c) => (
               <li key={c.dimensionId} className="causal-entry" data-testid={`result-causal-${c.dimensionId}`}>
                 <strong>
-                  {t(`dimension.${c.dimensionId}`)}: {levelSymbolOf(c.level)}
+                  {t(`dimension.${c.dimensionId}`)}: {levelLabel(c.level, t)}{" "}
+                  <span aria-hidden="true" className="muted">({levelSymbolOf(c.level)})</span>
                 </strong>
                 <span>
                   {t("rc3.result.causal.why")}: {t(`rc3.why.${c.dimensionId}`)}
@@ -671,12 +863,10 @@ export function JourneyResultView(props: { journey: JourneyApi; t: T; onToGym: (
         )}
       </div>
 
+      {/* H3 P2-2: Home はグローバル shell に一本化。ここでは Gym 導線のみ（Home ボタンを重複させない）。 */}
       <div className="result-actions">
         <button className="secondary" data-testid="result-to-gym" onClick={onToGym}>
           {t("rc3.result.toGym")}
-        </button>
-        <button className="primary" data-testid="result-to-home" onClick={() => journey.exit()}>
-          {t("rc3.result.toHome")}
         </button>
       </div>
     </section>

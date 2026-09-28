@@ -823,3 +823,52 @@ input[type="text"] {
 .shell-home {
   min-height: 44px;
 }
+
+/* ===== RC3 Final Stabilization ===== */
+/* N7 P2-6: mobile header 390px — no overflow / collision / clipping, 44px targets. */
+@media (max-width: 400px) {
+  .shell-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-2);
+    padding: var(--sp-2);
+    overflow-x: hidden;
+  }
+  .shell-nav,
+  .shell-meta {
+    flex-wrap: wrap;
+    width: 100%;
+    gap: var(--sp-2);
+  }
+  .shell-title {
+    order: -1;
+  }
+  .shell-app-title {
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+  .shell-home,
+  .shell-back {
+    min-height: 44px;
+    flex: 1 1 auto;
+  }
+  /* content が横にはみ出さない。 */
+  .shell-main {
+    overflow-x: hidden;
+  }
+  .approval-actions button,
+  .feedback-actions button,
+  .result-actions button {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
+}
+
+/* N8 P2-7: Training Gym を明確に secondary に見せる。 */
+.gym-secondary {
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+}
+.gym-secondary h2 {
+  font-size: var(--fs-3);
+}
