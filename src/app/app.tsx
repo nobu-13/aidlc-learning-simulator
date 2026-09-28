@@ -1,13 +1,17 @@
-// App root — orchestrator を組み立て、AppShell 内に view flow を routing する。
-import { useMemo } from "react";
+// App root — orchestrator を組み立て、RC3 Journey（Primary）と RC2 Training Gym（Focus/Practice）を
+// routing する。RC3 Journey を Primary Learning Experience とし（Human Decision 4）、RC2 core-e2e は
+// 3 Mode の primary flow としては露出しない（Gym 内で Focus/Practice として再利用）。
+import { useMemo, useState } from "react";
 import { createApplication, type Application } from "./application-orchestrator.ts";
 import { browserStorage } from "../data/progress-store.ts";
 import { scenarioModules } from "../scenarios/index.ts";
 import { useAppState } from "./use-app-state.ts";
+import { useJourneyState } from "./use-journey-state.ts";
 import { ErrorBoundary } from "../ui/error-boundary.tsx";
 import { AppShell } from "../ui/app-shell.tsx";
 import { ResultDashboardView } from "../ui/result-dashboard.tsx";
 import { PracticeLibraryView, PracticeView } from "../ui/practice-views.tsx";
+import { LangSwitcher } from "../ui/lang-switcher.tsx";
 import {
   AdoptionReviewView,
   ErrorView,
@@ -18,9 +22,24 @@ import {
   ScenarioIntroView,
   ScenarioView,
 } from "../ui/app-views.tsx";
+import {
+  JourneyCompletionView,
+  JourneyFeedbackView,
+  JourneyHomeView,
+  JourneyInterstitialView,
+  JourneyReleaseView,
+  JourneyResultView,
+  JourneyReviewView,
+  JourneySetupView,
+} from "../ui/journey-views.tsx";
 
-/** テスト用に Application を注入できるよう props で受け取れる。既定は本番構成。 */
-export function App(props: { application?: Application }): JSX.Element {
+/**
+ * テスト用に Application を注入できるよう props で受け取れる。既定は本番構成。
+ * initialSurface: 既定は RC3 Journey（Primary）。RC2 の regression テストは "gym" を指定して
+ * 再利用中の RC2 machinery（core-e2e / Focus / Practice）を検証する（Human Decision 4: 旧 RC2 core は
+ * RC3 equivalence 確立まで内部保持）。
+ */
+export function App(props: { application?: Application; initialSurface?: "journey" | "gym" }): JSX.Element {
   const application = useMemo(
     () =>
       props.application ??
@@ -32,22 +51,66 @@ export function App(props: { application?: Application }): JSX.Element {
     [props.application],
   );
 
+  // Primary = RC3 Journey。"gym" へ切り替えると RC2 Focus/Practice（Training Gym）を使う。
+  const [surface, setSurface] = useState<"journey" | "gym">(props.initialSurface ?? "journey");
+
   const app = useAppState(application);
+  const journey = useJourneyState(application);
   const resolver = application.resolverFor(app.state.locale);
   const t = resolver.t;
+
+  if (surface === "journey") {
+    return (
+      <ErrorBoundary title={t("boundary.title")} body={t("boundary.body")}>
+        <JourneyShell app={app} t={t} journey={journey}>
+          {renderJourney()}
+        </JourneyShell>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary title={t("boundary.title")} body={t("boundary.body")}>
       <AppShell app={app} t={t}>
-        {renderView()}
+        <>
+          <div className="gym-banner">
+            <button className="secondary" data-testid="gym-to-journey" onClick={() => setSurface("journey")}>
+              ← {t("rc3.home.title")}
+            </button>
+            <span className="gym-title">{t("rc3.gym.title")}</span>
+          </div>
+          {renderGym()}
+        </>
       </AppShell>
     </ErrorBoundary>
   );
 
-  function renderView(): JSX.Element {
+  function renderJourney(): JSX.Element {
+    const v = journey.state.view;
+    switch (v) {
+      case "journey-home":
+        return <JourneyHomeView journey={journey} t={t} onExitToGym={() => setSurface("gym")} />;
+      case "journey-setup":
+        return <JourneySetupView journey={journey} t={t} />;
+      case "journey-review":
+        return <JourneyReviewView journey={journey} t={t} />;
+      case "journey-feedback":
+        return <JourneyFeedbackView journey={journey} t={t} />;
+      case "journey-completion":
+        return <JourneyCompletionView journey={journey} t={t} />;
+      case "journey-interstitial":
+        return <JourneyInterstitialView journey={journey} t={t} />;
+      case "journey-release":
+        return <JourneyReleaseView journey={journey} t={t} />;
+      case "journey-result":
+        return <JourneyResultView journey={journey} t={t} onToGym={() => setSurface("gym")} />;
+      default:
+        return <JourneyHomeView journey={journey} t={t} onExitToGym={() => setSurface("gym")} />;
+    }
+  }
+
+  function renderGym(): JSX.Element {
     switch (app.state.view) {
-      case "home":
-        return <HomeView app={app} t={t} />;
       case "mode-select":
         return <ModeSelectView app={app} t={t} />;
       case "focus-library":
@@ -62,12 +125,7 @@ export function App(props: { application?: Application }): JSX.Element {
         return <ScenarioView app={app} t={t} />;
       case "result":
         return app.state.dashboard !== undefined ? (
-          <ResultDashboardView
-            app={app}
-            application={application}
-            dashboard={app.state.dashboard}
-            t={t}
-          />
+          <ResultDashboardView app={app} application={application} dashboard={app.state.dashboard} t={t} />
         ) : (
           <ErrorView app={app} application={application} t={t} />
         );
@@ -77,8 +135,35 @@ export function App(props: { application?: Application }): JSX.Element {
         return <AdoptionReviewView app={app} t={t} resolver={resolver} />;
       case "error":
         return <ErrorView app={app} application={application} t={t} />;
+      case "home":
       default:
-        return <ErrorView app={app} application={application} t={t} />;
+        return <HomeView app={app} t={t} />;
     }
   }
 }
+
+/** RC3 Journey 用の簡易 Shell（RC2 AppShell とは別。言語切替と復元バナーのみ）。 */
+function JourneyShell(props: {
+  app: ReturnType<typeof useAppState>;
+  journey: ReturnType<typeof useJourneyState>;
+  t: Application["resolver"]["t"];
+  children: JSX.Element;
+}): JSX.Element {
+  const { app, t, children } = props;
+  return (
+    <div className="shell">
+      <header className="shell-header">
+        <div className="shell-nav">
+          <span className="shell-app-title">{t("app.title")}</span>
+        </div>
+        <div className="shell-meta">
+          <LangSwitcher app={app} t={t} />
+        </div>
+      </header>
+      <main className="shell-main">{children}</main>
+    </div>
+  );
+}
+
+
+

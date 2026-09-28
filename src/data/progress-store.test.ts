@@ -36,6 +36,7 @@ function sampleProgress(): PersistedProgress {
     adoptionMemos: [],
     workshopInputs: {},
     practiceDrafts: {},
+    journey: null,
   };
 }
 
@@ -113,6 +114,61 @@ describe("ProgressStore", () => {
     expect(progress.mode).toBe("guided");
     expect(progress.workshopInputs).toEqual({});
     expect(progress.practiceDrafts).toEqual({});
+    // v3 で追加した journey は空（null）で補完される。
+    expect(progress.journey).toBeNull();
+  });
+
+  it("v2 データは additive migration で受理し journey は空で開始する（v2→v3・RC2 controlled transition）", () => {
+    const store = new ProgressStore(
+      fakeStorage({
+        [KEY]: JSON.stringify({
+          persistenceSchemaVersion: 2,
+          locale: "ja",
+          mode: "simulation",
+          sessions: [{ sessionId: "sess-1", scenarioId: "s1", status: "in-progress", decisionRecordIds: [] }],
+          decisionRecords: [],
+          completedScenarioIds: [],
+          adoptionMemos: [],
+          workshopInputs: { "project-context": "kept" },
+          practiceDrafts: {},
+        }),
+      }),
+    );
+    const { progress, recovered } = store.load("ja");
+    // RC2 in-progress state は corruption 扱いにしない（安全に維持）。
+    expect(recovered).toBeNull();
+    expect(progress.persistenceSchemaVersion).toBe(PERSISTENCE_SCHEMA_VERSION);
+    expect(progress.sessions[0]?.sessionId).toBe("sess-1");
+    expect(progress.workshopInputs["project-context"]).toBe("kept");
+    // RC2 の scenario は RC3 Journey へ変換しない。
+    expect(progress.journey).toBeNull();
+  });
+
+  it("v3 journey が round-trip する", () => {
+    const s = fakeStorage();
+    const store = new ProgressStore(s);
+    const p: PersistedProgress = {
+      ...sampleProgress(),
+      journey: {
+        mode: "simulation",
+        profileId: "user",
+        currentStepId: "j3-design",
+        userAuthored: { goal: "g" },
+        structured: { dataSensitivity: "personal-info" },
+        revisions: { "j1-requirements": 1 },
+        completedStepIds: ["j1-requirements", "j2-acceptance-scope"],
+        reworkHistory: [
+          { fromStepId: "j3-design", toStepId: "j1-requirements", action: "return", trigger: "critical-finding", atRevision: 1 },
+        ],
+        reviews: { "j2-acceptance-scope": { findings: [{ itemId: "ac-item-mismatch" }], gateDecision: "approve" } },
+        releaseConflated: false,
+      },
+    };
+    store.save(p);
+    const { progress } = store.load("ja");
+    expect(progress.journey?.currentStepId).toBe("j3-design");
+    expect(progress.journey?.completedStepIds).toContain("j1-requirements");
+    expect(progress.journey?.reworkHistory[0]?.trigger).toBe("critical-finding");
   });
 
   it("v2 の workshopInputs / practiceDrafts が round-trip する", () => {

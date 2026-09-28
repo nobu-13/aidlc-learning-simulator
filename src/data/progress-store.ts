@@ -17,12 +17,14 @@ import type {
 /**
  * 永続 schema バージョン（Scenario schemaVersion とは独立・BR6.2）。
  * v2（RC2 Stabilization）: mode / workshopInputs / practiceDrafts を追加。
- * v1 → v2 は「不足フィールドを空で補う」additive migration（既存 scenario 進捗を失わない）。
+ * v3（RC3）: journey（RC3 Journey 状態）を追加。
+ * v1 → v2 → v3 は「不足フィールドを空で補う」additive migration（既存 scenario 進捗を失わない）。
+ * RC2 の in-progress scenario は RC3 Journey へ無理に変換しない（journey は空で開始）。
  */
-export const PERSISTENCE_SCHEMA_VERSION = 2;
+export const PERSISTENCE_SCHEMA_VERSION = 3;
 
 /** 後方互換で受理する旧バージョン（additive migration の対象）。 */
-const MIGRATABLE_VERSIONS: readonly number[] = [1];
+const MIGRATABLE_VERSIONS: readonly number[] = [1, 2];
 
 const STORAGE_KEY = "aidlc-learning-simulator/progress/v1";
 
@@ -34,6 +36,42 @@ export type PracticeDrafts = Readonly<Record<string, Readonly<Record<string, str
 
 /** Adoption Workshop の user-authored 入力（heading slug → text）。locale 非依存。 */
 export type WorkshopInputs = Readonly<Record<string, string>>;
+
+/**
+ * RC3 Journey の永続 snapshot（stable-ID ベース・表示文言を含まない）。
+ * mode / journey position / structured & user-authored inputs / reviews / decisions /
+ * rework history / approvals を保持する（Design §19 / Human Decision 11）。
+ * 型は JSON 直列化可能な最小構造にとどめ、domain 型に依存しすぎない（migration 安定性）。
+ */
+export interface PersistedJourney {
+  readonly mode: ExperienceMode;
+  readonly profileId: string;
+  readonly currentStepId: string;
+  readonly userAuthored: Readonly<Record<string, string>>;
+  readonly structured: Readonly<Record<string, string>>;
+  readonly revisions: Readonly<Record<string, number>>;
+  readonly completedStepIds: readonly string[];
+  readonly reworkHistory: readonly {
+    readonly fromStepId: string;
+    readonly toStepId: string;
+    readonly action: string;
+    readonly trigger: string;
+    readonly atRevision: number;
+  }[];
+  readonly reviews: Readonly<
+    Record<
+      string,
+      {
+        readonly findings: readonly { readonly itemId: string; readonly severity?: string }[];
+        readonly gateDecision: string;
+        readonly noteText?: string;
+      }
+    >
+  >;
+  readonly completionDecision?: string | undefined;
+  readonly releaseDecision?: string | undefined;
+  readonly releaseConflated?: boolean | undefined;
+}
 
 /** 永続化される snapshot（stable-ID ベース・表示文言を含まない）。 */
 export interface PersistedProgress {
@@ -49,6 +87,8 @@ export interface PersistedProgress {
   readonly workshopInputs: WorkshopInputs;
   /** Practice ごとの下書き。 */
   readonly practiceDrafts: PracticeDrafts;
+  /** RC3 Journey 状態（未開始なら null）。v3 で追加。 */
+  readonly journey: PersistedJourney | null;
 }
 
 /** 空の初期状態（safe reset の到達点）。 */
@@ -63,6 +103,7 @@ export function emptyProgress(locale: Locale): PersistedProgress {
     adoptionMemos: [],
     workshopInputs: {},
     practiceDrafts: {},
+    journey: null,
   };
 }
 
@@ -169,6 +210,8 @@ export class ProgressStore {
       : "guided";
     const workshopInputs = isStringRecord(v.workshopInputs) ? (v.workshopInputs as WorkshopInputs) : {};
     const practiceDrafts = isNestedStringRecord(v.practiceDrafts) ? (v.practiceDrafts as PracticeDrafts) : {};
+    // v3 journey は additive。形が不正なら null（RC2 state はそのまま維持し journey だけ空で開始）。
+    const journey = isValidJourney(v.journey) ? (v.journey as PersistedJourney) : null;
 
     return {
       persistenceSchemaVersion: PERSISTENCE_SCHEMA_VERSION,
@@ -180,6 +223,7 @@ export class ProgressStore {
       adoptionMemos: v.adoptionMemos as PersistedProgress["adoptionMemos"],
       workshopInputs,
       practiceDrafts,
+      journey,
     };
   }
 }
@@ -194,6 +238,24 @@ function isStringRecord(value: unknown): boolean {
 function isNestedStringRecord(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   return Object.values(value as Record<string, unknown>).every((v) => isStringRecord(v));
+}
+
+/**
+ * PersistedJourney の防御的検証（v3・additive）。最小限の形チェックのみ。
+ * 不正なら呼び出し側が null にして「journey 未開始」として扱う（RC2 state は壊さない）。
+ */
+function isValidJourney(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value !== "object") return false;
+  const j = value as Record<string, unknown>;
+  if (typeof j.mode !== "string" || typeof j.profileId !== "string") return false;
+  if (typeof j.currentStepId !== "string") return false;
+  if (typeof j.userAuthored !== "object" || j.userAuthored === null) return false;
+  if (typeof j.structured !== "object" || j.structured === null) return false;
+  if (typeof j.reviews !== "object" || j.reviews === null) return false;
+  if (!Array.isArray(j.completedStepIds)) return false;
+  if (!Array.isArray(j.reworkHistory)) return false;
+  return true;
 }
 
 /** ブラウザ localStorage を StoragePort として包む（実行時 adapter）。 */
