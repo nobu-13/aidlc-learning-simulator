@@ -70,7 +70,7 @@ afterEach(() => cleanup());
 describe("note isolation — Case A (single note, DP1 only)", () => {
   it("Adoption: DP1 note のみ → timeline / sheet に 1 回だけ、他 DP には付かない", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(memoryStorage())} />);
+    render(<App application={makeApp(memoryStorage())} initialSurface="gym" />);
     await runCore(user, "mode-adoption-review", ["single-note-check", null, null, null]);
     const rows = timelineRows();
     expect(countRowsWith(rows, "single-note-check")).toBe(1);
@@ -80,7 +80,7 @@ describe("note isolation — Case A (single note, DP1 only)", () => {
 
   it("Guided: DP1 note のみ → 同様に 1 回だけ（mode 間で挙動一致）", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(memoryStorage())} />);
+    render(<App application={makeApp(memoryStorage())} initialSurface="gym" />);
     await runCore(user, "mode-guided", ["single-note-check", null, null, null]);
     const rows = timelineRows();
     expect(countRowsWith(rows, "single-note-check")).toBe(1);
@@ -92,7 +92,7 @@ describe("note isolation — Case A (single note, DP1 only)", () => {
 describe("note isolation — Case B (distinct notes)", () => {
   it("Adoption: 各 DP に異なる note → それぞれ 1 回ずつ、対応 Decision に付く", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(memoryStorage())} />);
+    render(<App application={makeApp(memoryStorage())} initialSurface="gym" />);
     await runCore(user, "mode-adoption-review", ["note-one", "note-two", "note-three", "note-four"]);
     const rows = timelineRows();
     expect(countRowsWith(rows, "note-one")).toBe(1);
@@ -116,7 +116,7 @@ describe("note isolation — Case B (distinct notes)", () => {
 describe("note isolation — Case C (no notes)", () => {
   it("Adoption: 全 DP note 無し → timeline に Note 表示なし / sheet に Your Notes なし", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(memoryStorage())} />);
+    render(<App application={makeApp(memoryStorage())} initialSurface="gym" />);
     await runCore(user, "mode-adoption-review", [null, null, null, null]);
     const rows = timelineRows();
     expect(countRowsWith(rows, "Note")).toBe(0);
@@ -130,7 +130,7 @@ describe("note isolation — Case C (no notes)", () => {
 describe("note isolation — Case D (same text on two Decisions is legal)", () => {
   it("Adoption: DP1=DP2=same-note → 2 つの Decision にそれぞれ 1 回、dedupe しない", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(memoryStorage())} />);
+    render(<App application={makeApp(memoryStorage())} initialSurface="gym" />);
     await runCore(user, "mode-adoption-review", ["same-note", "same-note", null, null]);
     const rows = timelineRows();
     // 2 つの異なる Decision 行に same-note がそれぞれ付く。
@@ -147,7 +147,7 @@ describe("note isolation — reload / Resume", () => {
   it("DP1 に note 入力後 reload → Resume → note は DP1 に保持され続き DP2 は空", async () => {
     const user = userEvent.setup();
     const storage = memoryStorage();
-    const { unmount } = render(<App application={makeApp(storage)} />);
+    const { unmount } = render(<App application={makeApp(storage)} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-adoption-review"));
     await user.click(screen.getByTestId("begin"));
@@ -157,7 +157,7 @@ describe("note isolation — reload / Resume", () => {
     unmount();
     cleanup();
 
-    render(<App application={makeApp(storage)} />);
+    render(<App application={makeApp(storage)} initialSurface="gym" />);
     await user.click(screen.getByTestId("continue")); // Resume → scenario（DP2）
     // DP2 の note textarea は空（DP1 の note が漏れない）。
     expect(screen.getByTestId("note")).toHaveValue("");
@@ -174,7 +174,7 @@ describe("note isolation — reload / Resume", () => {
   it("DecisionRecord に保存された note は DP1 のみ（storage 直接確認）", async () => {
     const user = userEvent.setup();
     const storage = memoryStorage();
-    render(<App application={makeApp(storage)} />);
+    render(<App application={makeApp(storage)} initialSurface="gym" />);
     await runCore(user, "mode-adoption-review", ["only-dp1", null, null, null]);
     const saved = JSON.parse(storage.data[KEY]!);
     const notes = (saved.decisionRecords as Array<{ decisionPointId: string; note?: string }>)

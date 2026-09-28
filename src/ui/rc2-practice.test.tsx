@@ -29,7 +29,7 @@ afterEach(() => cleanup());
 describe("RC2 Practice: library + navigation", () => {
   it("Home から practice library へ行き、5 practice を表示する", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("practices"));
     expect(screen.getByTestId("practice-req-create")).toBeInTheDocument();
     expect(screen.getByTestId("practice-evidence-review")).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe("RC2 Practice: library + navigation", () => {
 
   it("practice library の axe 違反ゼロ", async () => {
     const user = userEvent.setup();
-    const { container } = render(<App application={makeApp()} />);
+    const { container } = render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("practices"));
     const results = await axe(container);
     expect(results).toHaveNoViolations();
@@ -50,7 +50,7 @@ describe("RC2 Practice: library + navigation", () => {
 describe("RC2 Practice: Requirement Create", () => {
   it("必須項目を埋めて採点すると allSatisfied と AC 件数を表示", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("practices"));
     await user.click(screen.getByTestId("practice-req-create"));
     await user.type(screen.getByTestId("req-goal"), "Login feature");
@@ -65,7 +65,7 @@ describe("RC2 Practice: Requirement Create", () => {
 
   it("空のまま採点すると missing を表示（deterministic）", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("practices"));
     await user.click(screen.getByTestId("practice-req-create"));
     await user.click(screen.getByTestId("practice-evaluate"));
@@ -78,7 +78,7 @@ describe("RC2 Practice: Requirement Create", () => {
 describe("RC2 Practice: Evidence Review", () => {
   it("正しく分類すると correct、誤ると incorrect を表示", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("practices"));
     await user.click(screen.getByTestId("practice-evidence-review"));
     // 期待値書き換えは insufficient が正解。
@@ -94,7 +94,7 @@ describe("RC2 Practice: Evidence Review", () => {
 describe("RC2 Practice: Approval/Delegation classification", () => {
   it("本番シークレット読み取りを block に分類すると correct", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("practices"));
     await user.click(screen.getByTestId("practice-approval-delegation"));
     await user.click(screen.getByTestId("cls-act-prod-secret-block"));
@@ -106,7 +106,7 @@ describe("RC2 Practice: Approval/Delegation classification", () => {
 describe("RC2 Practice: Traceability", () => {
   it("テスト欠落の鎖を incomplete と判定すると correct", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("practices"));
     await user.click(screen.getByTestId("practice-traceability"));
     await user.click(screen.getByTestId("tr-chain-reset-incomplete"));
@@ -118,7 +118,7 @@ describe("RC2 Practice: Traceability", () => {
 describe("RC2 Practice: Change Control", () => {
   it("承認後の要件変更に re-evaluate を選ぶと correct", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("practices"));
     await user.click(screen.getByTestId("practice-change-control"));
     await user.click(screen.getByTestId("cc-cc-approved-req-changed-re-evaluate"));
@@ -130,7 +130,7 @@ describe("RC2 Practice: Change Control", () => {
 describe("RC2 Adoption Workshop", () => {
   it("Workshop 入力が生成 Sheet に user-authored として反映される", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(["en"])} />);
+    render(<App application={makeApp(["en"])} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-adoption-review"));
     await user.click(screen.getByTestId("begin"));

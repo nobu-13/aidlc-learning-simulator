@@ -40,7 +40,7 @@ afterEach(() => cleanup());
 describe("RC2: DP1 feedback (BUG 4.1)", () => {
   it("最初の判断（dp-ac）でも空でない feedback（selected + status + why）を表示する", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -54,7 +54,7 @@ describe("RC2: DP1 feedback (BUG 4.1)", () => {
 
   it("選択に応じて status が変わる（option 別 feedback）", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -67,7 +67,7 @@ describe("RC2: DP1 feedback (BUG 4.1)", () => {
 describe("RC2: note duplication regression (BUG 4.3)", () => {
   it("DP1 で入力した note が次 DP に残らず、Sheet で重複しない", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-adoption-review"));
     await user.click(screen.getByTestId("begin"));
@@ -96,7 +96,7 @@ describe("RC2: note duplication regression (BUG 4.3)", () => {
 describe("RC2: English sheet has no Japanese (BUG 4.4)", () => {
   it("en の Adoption Sheet に日本語（HTML コメント含む）が混入しない", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(["en"])} />);
+    render(<App application={makeApp(["en"])} initialSurface="gym" />);
     await completeCore(user, "mode-adoption-review");
     await user.click(screen.getByTestId("to-reflection"));
     await user.click(screen.getByTestId("to-adoption"));
@@ -114,7 +114,7 @@ describe("RC2: reload restores progress (BUG 4.5)", () => {
     const user = userEvent.setup();
     const storage = memoryStorage();
     // 1 回目: 2 択進めて中断（storage に保存される）。
-    const { unmount } = render(<App application={makeApp(["en"], storage)} />);
+    const { unmount } = render(<App application={makeApp(["en"], storage)} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -123,7 +123,7 @@ describe("RC2: reload restores progress (BUG 4.5)", () => {
     unmount();
     cleanup();
     // 2 回目: 同じ storage で再起動 → 復元通知 + scenario 続行可能。
-    render(<App application={makeApp(["en"], storage)} />);
+    render(<App application={makeApp(["en"], storage)} initialSurface="gym" />);
     expect(screen.getByTestId("recovered-banner")).toBeInTheDocument();
     // Home に continue-card が出る。
     expect(screen.getByTestId("continue-card")).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe("RC2: reload restores progress (BUG 4.5)", () => {
 
   it("破損 storage は blank にならず controlled fallback（Home 表示）", () => {
     const storage = memoryStorage({ "aidlc-learning-simulator/progress/v1": "{not json" });
-    render(<App application={makeApp(["en"], storage)} />);
+    render(<App application={makeApp(["en"], storage)} initialSurface="gym" />);
     expect(screen.getByTestId("start")).toBeInTheDocument();
     expect(screen.getByTestId("recovered-banner")).toBeInTheDocument();
   });
@@ -140,7 +140,7 @@ describe("RC2: reload restores progress (BUG 4.5)", () => {
 describe("RC2: navigation (AppShell / back / retry)", () => {
   it("どの画面からも Home へ戻れる", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     // mode-select から nav-home。
     await user.click(screen.getByTestId("nav-home"));
@@ -149,7 +149,7 @@ describe("RC2: navigation (AppShell / back / retry)", () => {
 
   it("feedback から Back で選び直せる（決定的 rollback）", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -162,7 +162,7 @@ describe("RC2: navigation (AppShell / back / retry)", () => {
 
   it("Result から Retry で最初からやり直せる", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await completeCore(user);
     await user.click(screen.getByTestId("result-retry"));
     expect(screen.getByTestId("option-o-ac-clarify")).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe("RC2: navigation (AppShell / back / retry)", () => {
 describe("RC2: Lifecycle Stepper", () => {
   it("scenario 画面に stage stepper と progress を表示する", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -185,7 +185,7 @@ describe("RC2: Lifecycle Stepper", () => {
 describe("RC2: Result Dashboard", () => {
   it("完走後に summary / 9 Dimension / timeline を表示する", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await completeCore(user);
     expect(screen.getByTestId("result-summary")).toBeInTheDocument();
     const dims = within(screen.getByTestId("dimensions")).getAllByRole("listitem");
@@ -195,7 +195,7 @@ describe("RC2: Result Dashboard", () => {
 
   it("弱い選択だと review dimensions と next-focus 推薦が出る", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -214,7 +214,7 @@ describe("RC2: Result Dashboard", () => {
 describe("RC2: Reflection is not empty", () => {
   it("完走後の Reflection は判断一覧と問いを含む", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await completeCore(user);
     await user.click(screen.getByTestId("to-reflection"));
     expect(screen.getByTestId("reflection-decisions")).toBeInTheDocument();
@@ -226,7 +226,7 @@ describe("RC2: Reflection is not empty", () => {
 describe("RC2: mode differentiation", () => {
   it("Guided は判断前に概念（provenance）を先出しする", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -235,7 +235,7 @@ describe("RC2: mode differentiation", () => {
 
   it("Simulation は判断前の概念先出しをしない", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-simulation"));
     await user.click(screen.getByTestId("begin"));
@@ -244,7 +244,7 @@ describe("RC2: mode differentiation", () => {
 
   it("Reflection の問いが mode で変わる（Adoption は実チームの問い）", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(["en"])} />);
+    render(<App application={makeApp(["en"])} initialSurface="gym" />);
     await completeCore(user, "mode-adoption-review");
     await user.click(screen.getByTestId("to-reflection"));
     expect(screen.getByText(/your own team/i)).toBeInTheDocument();

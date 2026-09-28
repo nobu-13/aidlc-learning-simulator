@@ -28,7 +28,7 @@ afterEach(() => cleanup());
 
 describe("App UI flow", () => {
   it("Home が表示され、主要画面の axe 違反が critical/serious ゼロ", async () => {
-    const { container } = render(<App application={makeApp()} />);
+    const { container } = render(<App application={makeApp()} initialSurface="gym" />);
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
     const results = await axe(container);
     expect(results).toHaveNoViolations();
@@ -36,7 +36,7 @@ describe("App UI flow", () => {
 
   it("keyboard/クリックで Home→mode 選択→intro→scenario へ進める", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     // intro
@@ -48,7 +48,7 @@ describe("App UI flow", () => {
 
   it("完走すると Result が出て 9 Dimension と simulation-value 注記を表示する", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -66,7 +66,7 @@ describe("App UI flow", () => {
 
   it("Tab で option ボタンにフォーカスでき Enter で起動できる（keyboard 操作・NFR4）", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -80,7 +80,7 @@ describe("App UI flow", () => {
 
   it("判断メモを入力しても言語切替で失われず、UI 文言のみ変わる（FR10.3）", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp(["en"])} />);
+    render(<App application={makeApp(["en"])} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -96,7 +96,7 @@ describe("App UI flow", () => {
 
   it("provenance は色以外（ラベル＋記号＋テキスト）で区別表示される（BR4.2）", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided")); // guided は important DP の provenance を先出し
     await user.click(screen.getByTestId("begin"));
@@ -110,7 +110,7 @@ describe("App UI flow", () => {
 describe("AdoptionReview: Discussion Sheet 生成・download（R-04 / FR8.1）", () => {
   it("完走後に Adoption Review でシートを生成し、preview と download を提供する", async () => {
     const user = userEvent.setup();
-    render(<App application={makeApp()} />);
+    render(<App application={makeApp()} initialSurface="gym" />);
     await user.click(screen.getByTestId("start"));
     await user.click(screen.getByTestId("mode-guided"));
     await user.click(screen.getByTestId("begin"));
@@ -159,7 +159,7 @@ describe("ErrorView", () => {
       storage: memoryStorage(),
       browserLanguages: ["en"],
     });
-    const { container } = render(<App application={app} />);
+    const { container } = render(<App application={app} initialSurface="gym" />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getByTestId("unavailable-list")).toBeInTheDocument();
     const results = await axe(container);
