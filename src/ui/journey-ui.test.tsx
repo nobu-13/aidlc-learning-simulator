@@ -177,13 +177,16 @@ describe("RC3 Journey — deterministic result & locale invariance", () => {
       await user.click(screen.getByTestId("completion-approve"));
       await user.click(screen.getByTestId("interstitial-continue"));
       await user.click(screen.getByTestId("release-approve"));
+      // dimension level は locale 不変。各 journey-dim-<id> の (symbol) 部分だけ抽出して比較
+      // （label 自体は locale で変わるのが正しいので symbol で比較する）。
       const dims = screen.getByTestId("journey-dimensions");
       return within(dims)
-        .getAllByText(/^(\+\+|\+|-|--|0)$/)
-        .map((el) => el.textContent ?? "");
+        .getAllByTestId(/^journey-dim-/)
+        .map((el) => (el.textContent ?? "").match(/\((\+\+|\+|-|--|0)\)/)?.[1] ?? "");
     };
     const ja = await run("ja");
     const en = await run("en");
     expect(ja).toEqual(en);
+    expect(ja.length).toBe(9);
   });
 });

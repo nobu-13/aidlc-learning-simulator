@@ -71,6 +71,48 @@ export interface PersistedJourney {
   readonly completionDecision?: string | undefined;
   readonly releaseDecision?: string | undefined;
   readonly releaseConflated?: boolean | undefined;
+  /** Setup 中の下書き（F1・additive）。beginJourney 前の Simulation/Adoption 入力を保持。 */
+  readonly draftUserAuthored?: Readonly<Record<string, string>> | undefined;
+  readonly draftStructured?: Readonly<Record<string, string>> | undefined;
+  /** 保存時の view（F1/F2 の resume routing 補助・additive）。 */
+  readonly savedView?: string | undefined;
+  /** journey が完了済みか（F2 resume routing・additive）。 */
+  readonly journeyComplete?: boolean | undefined;
+  /** finding-level 学習履歴（F3/F4・additive）。JSON 直列化可能な最小構造。 */
+  readonly learningHistory?:
+    | {
+        readonly entries: readonly {
+          readonly itemTitleKey: string;
+          readonly itemBodyKey: string;
+          readonly mistakeType: string;
+          readonly severity?: string;
+          readonly whyItMattersKey?: string;
+          readonly originStepId?: string;
+          readonly affectedLaterStepId?: string;
+          readonly consequenceKey?: string;
+          readonly revisitStepId?: string;
+        }[];
+        readonly totalMissed: number;
+        readonly totalFalse: number;
+      }
+    | undefined;
+  /**
+   * 未 submit の Review 下書き（G1・additive）。step ごとに保持。
+   * artifactId は復元時の一致判定に使う（revision ずれの誤 hydrate 防止）。
+   */
+  readonly reviewDrafts?:
+    | Readonly<
+        Record<
+          string,
+          {
+            readonly artifactId: string;
+            readonly findings: readonly { readonly itemId: string; readonly severity?: string }[];
+            readonly gateDecision: string;
+            readonly noteText?: string;
+          }
+        >
+      >
+    | undefined;
 }
 
 /** 永続化される snapshot（stable-ID ベース・表示文言を含まない）。 */

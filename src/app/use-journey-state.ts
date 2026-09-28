@@ -12,6 +12,7 @@ import type {
   GeneratedArtifact,
   JourneyStepId,
   ProjectContextInput,
+  Severity,
   StructuredControlInput,
 } from "../domain/journey/journey-entities.ts";
 import { JOURNEY_STEP_IDS } from "../domain/journey/journey-entities.ts";
@@ -55,6 +56,7 @@ import {
   type CausalLearningEntry,
 } from "../domain/journey/journey-summaries.ts";
 import { evaluateAllReviews } from "../domain/journey/journey-engine.ts";
+import { buildFeedbackViewModel, type FeedbackViewModel } from "../domain/journey/feedback-viewmodel.ts";
 import type { PersistedJourney, PersistedProgress } from "../data/progress-store.ts";
 
 export type JourneyView =
@@ -88,10 +90,68 @@ export interface JourneyState {
    */
   readonly resumable: boolean;
   /**
-   * Simulation の critical miss で強制 rework が必要な状態（P1-3）。
+   * Simulation の critical miss で強制 rework が必要な状態（P1-3/P1-4）。
    * feedback view でこれが true のとき、Next を出さず Return for rework を促す。
    */
   readonly mustFix: boolean;
+  /**
+   * 学習履歴（P1-5 N3）。current review 状態とは独立に、Journey 中に一度でも起きた
+   * miss / false positive / rework を累積する。最終的に correct review へ直しても消えない。
+   */
+  readonly learningHistory: LearningHistory;
+  /** Journey が完了したか（P2-5 N6）。true なら Home は completed 扱い（in-progress resume を出さない）。 */
+  readonly journeyComplete: boolean;
+  /**
+   * 未 submit の Review 下書き（G1）。step ごとに保持し、reload / Home 往復後も復元する。
+   * submitReview で確定した review とは独立。artifactId が現在の artifact と一致するときのみ hydrate。
+   */
+  readonly reviewDrafts: Readonly<Partial<Record<JourneyStepId, ReviewDraft>>>;
+}
+
+/**
+ * 未 submit の Review 下書き（G1）。submitReview 前の作業中入力を step 単位で persist/restore する。
+ * artifactId を持ち、現在表示中の artifact と一致するときだけ hydrate する（revision ずれで誤復元しない）。
+ */
+export interface ReviewDraft {
+  readonly artifactId: string;
+  readonly findings: readonly { readonly itemId: string; readonly severity?: Severity | undefined }[];
+  readonly gateDecision: ArtifactReview["gateDecision"];
+  readonly noteText?: string | undefined;
+}
+
+/**
+ * finding-level の学習履歴エントリ（F4）。「具体的に何を間違えたか」に答えるための情報。
+ * internal ID は含めず locale key / 列挙値のみ。stable key（stepId + itemTitleKey + mistakeType）で dedup。
+ */
+export interface LearningHistoryEntry {
+  readonly itemTitleKey: string;
+  readonly itemBodyKey: string;
+  readonly mistakeType: "missed" | "false-positive";
+  readonly severity?: Severity | undefined;
+  readonly whyItMattersKey?: string | undefined;
+  readonly originStepId?: JourneyStepId | undefined;
+  readonly affectedLaterStepId?: JourneyStepId | undefined;
+  readonly consequenceKey?: string | undefined;
+  readonly revisitStepId?: JourneyStepId | undefined;
+}
+
+/** Journey を通じた学習履歴の累積（P1-5 / F3 / F4）。current state とは別に保持・永続する。 */
+export interface LearningHistory {
+  /** finding-level の履歴（dedup 済み・表示用）。 */
+  readonly entries: readonly LearningHistoryEntry[];
+  /** miss 発生回数（累積・aggregate metric）。dedup とは別に実発生回数を保持。 */
+  readonly totalMissed: number;
+  /** false positive 発生回数（累積）。 */
+  readonly totalFalse: number;
+}
+
+function emptyLearningHistory(): LearningHistory {
+  return { entries: [], totalMissed: 0, totalFalse: 0 };
+}
+
+/** entry の stable key（dedup 用）。 */
+function historyEntryKey(e: LearningHistoryEntry): string {
+  return `${e.originStepId ?? "?"}__${e.itemTitleKey}__${e.mistakeType}`;
 }
 
 export interface JourneyApi {
@@ -104,6 +164,8 @@ export interface JourneyApi {
   setDraftStructured(field: keyof StructuredControlInput, value: string): void;
   beginJourney(): void;
   currentArtifact(): GeneratedArtifact;
+  /** 未 submit の Review 下書きを保存する（G1）。 */
+  setReviewDraft(draft: ReviewDraft): void;
   submitReview(review: ArtifactReview): void;
   proceedAfterFeedback(): void;
   reworkTo(stepId: JourneyStepId, trigger: ReworkTrigger): void;
@@ -115,6 +177,10 @@ export interface JourneyApi {
   completionSummary(): CompletionSummary;
   /** Result の因果学習サマリ（P2-5）。 */
   causalSummary(): readonly CausalLearningEntry[];
+  /** 直近 review の human-readable feedback view model（P1-1 H2/H4）。 */
+  feedbackViewModel(): FeedbackViewModel | undefined;
+  /** rework 回数（single source of truth = reworkHistory・P2-4 N5）。 */
+  reworkCount(): number;
   /** Home へ戻る（Journey は破棄せず保持。Resume で復帰可能・P1-4）。 */
   goHome(): void;
   /** 保存済み in-progress Journey へ復帰する（P1-2）。 */
@@ -170,10 +236,53 @@ function toPersistedJourney(s: JourneyState): PersistedJourney {
     ...(s.completionDecision !== undefined ? { completionDecision: s.completionDecision } : {}),
     ...(s.releaseDecision !== undefined ? { releaseDecision: s.releaseDecision } : {}),
     releaseConflated: s.releaseConflated,
+    // F1: Setup 中の下書き（beginJourney 前でも保存）。
+    draftUserAuthored: { ...s.draftUserAuthored } as Record<string, string>,
+    draftStructured: { ...s.draftStructured } as unknown as Record<string, string>,
+    savedView: s.view,
+    journeyComplete: s.journeyComplete,
+    // F3/F4: finding-level 学習履歴。
+    learningHistory: {
+      entries: s.learningHistory.entries.map((e) => ({
+        itemTitleKey: e.itemTitleKey,
+        itemBodyKey: e.itemBodyKey,
+        mistakeType: e.mistakeType,
+        ...(e.severity !== undefined ? { severity: e.severity } : {}),
+        ...(e.whyItMattersKey !== undefined ? { whyItMattersKey: e.whyItMattersKey } : {}),
+        ...(e.originStepId !== undefined ? { originStepId: e.originStepId } : {}),
+        ...(e.affectedLaterStepId !== undefined ? { affectedLaterStepId: e.affectedLaterStepId } : {}),
+        ...(e.consequenceKey !== undefined ? { consequenceKey: e.consequenceKey } : {}),
+        ...(e.revisitStepId !== undefined ? { revisitStepId: e.revisitStepId } : {}),
+      })),
+      totalMissed: s.learningHistory.totalMissed,
+      totalFalse: s.learningHistory.totalFalse,
+    },
+    // G1: 未 submit の Review 下書き。
+    reviewDrafts: serializeReviewDrafts(s.reviewDrafts),
   };
 }
 
-/** PersistedJourney → 復元用の JourneyState 断片（P1-2）。不正なら null（controlled fallback）。 */
+/** JourneyState.reviewDrafts → Persisted 形（stable id のみ）。 */
+function serializeReviewDrafts(
+  drafts: Readonly<Partial<Record<JourneyStepId, ReviewDraft>>>,
+): NonNullable<PersistedJourney["reviewDrafts"]> {
+  const out: Record<string, unknown> = {};
+  for (const stepId of JOURNEY_STEP_IDS) {
+    const d = drafts[stepId];
+    if (d === undefined) continue;
+    out[stepId] = {
+      artifactId: d.artifactId,
+      findings: d.findings.map((f) =>
+        f.severity !== undefined ? { itemId: f.itemId, severity: f.severity } : { itemId: f.itemId },
+      ),
+      gateDecision: d.gateDecision,
+      ...(d.noteText !== undefined ? { noteText: d.noteText } : {}),
+    };
+  }
+  return out as NonNullable<PersistedJourney["reviewDrafts"]>;
+}
+
+/** PersistedJourney → 復元用の JourneyState 断片（P1-2 / F1 / F3）。不正なら null（controlled fallback）。 */
 interface RestoredJourney {
   readonly mode: ExperienceMode;
   readonly profile: JourneyProfile;
@@ -182,6 +291,12 @@ interface RestoredJourney {
   readonly completionDecision?: ApprovalDecision | undefined;
   readonly releaseDecision?: ApprovalDecision | undefined;
   readonly releaseConflated: boolean;
+  readonly draftUserAuthored: ProjectContextInput["userAuthored"];
+  readonly draftStructured: StructuredControlInput;
+  readonly savedView: JourneyView | undefined;
+  readonly journeyComplete: boolean;
+  readonly learningHistory: LearningHistory;
+  readonly reviewDrafts: Readonly<Partial<Record<JourneyStepId, ReviewDraft>>>;
 }
 
 const APPROVAL_DECISIONS: readonly ApprovalDecision[] = ["approve", "approve-with-conditions", "return", "block"];
@@ -254,6 +369,14 @@ function restoreJourney(persisted: PersistedJourney): RestoredJourney | null {
     completedStepIds,
   };
 
+  // F1: Setup 下書きを復元（safe default）。
+  const draftUserAuthored = (persisted.draftUserAuthored ?? {}) as ProjectContextInput["userAuthored"];
+  const draftStructured = restoreStructured(persisted.draftStructured);
+  const savedView = isJourneyView(persisted.savedView) ? persisted.savedView : undefined;
+
+  // F3/F4: 学習履歴を復元（missing = empty・safe）。
+  const learningHistory = restoreLearningHistory(persisted.learningHistory);
+
   return {
     mode,
     profile,
@@ -262,15 +385,119 @@ function restoreJourney(persisted: PersistedJourney): RestoredJourney | null {
     ...(isApproval(persisted.completionDecision) ? { completionDecision: persisted.completionDecision } : {}),
     ...(isApproval(persisted.releaseDecision) ? { releaseDecision: persisted.releaseDecision } : {}),
     releaseConflated: persisted.releaseConflated === true,
+    draftUserAuthored,
+    draftStructured,
+    savedView,
+    journeyComplete: persisted.journeyComplete === true || isApproval(persisted.releaseDecision),
+    learningHistory,
+    // G1: 未 submit の Review 下書きを復元（missing/不正 = 空）。
+    reviewDrafts: restoreReviewDrafts(persisted.reviewDrafts),
   };
 }
 
-/** 復元した JourneyState 断片からどの view で再開するかを決める。 */
+/** persisted reviewDrafts を復元（missing/不正 = 空。gate/severity を型検証）。 */
+function restoreReviewDrafts(
+  v: PersistedJourney["reviewDrafts"] | undefined,
+): Readonly<Partial<Record<JourneyStepId, ReviewDraft>>> {
+  const out: Partial<Record<JourneyStepId, ReviewDraft>> = {};
+  if (v === undefined) return out;
+  for (const stepId of JOURNEY_STEP_IDS) {
+    const d = v[stepId];
+    if (d === undefined || typeof d.artifactId !== "string") continue;
+    const gate = (GATE_DECISIONS as readonly string[]).includes(d.gateDecision)
+      ? (d.gateDecision as ArtifactReview["gateDecision"])
+      : "approve";
+    const findings = Array.isArray(d.findings)
+      ? d.findings
+          .filter((f): f is { itemId: string; severity?: string } => typeof f.itemId === "string")
+          .map((f) =>
+            isSeverity(f.severity) ? { itemId: f.itemId, severity: f.severity } : { itemId: f.itemId },
+          )
+      : [];
+    out[stepId] = {
+      artifactId: d.artifactId,
+      findings,
+      gateDecision: gate,
+      ...(typeof d.noteText === "string" ? { noteText: d.noteText } : {}),
+    };
+  }
+  return out;
+}
+
+const JOURNEY_VIEWS: readonly JourneyView[] = [
+  "journey-home",
+  "journey-setup",
+  "journey-review",
+  "journey-feedback",
+  "journey-completion",
+  "journey-interstitial",
+  "journey-release",
+  "journey-result",
+];
+function isJourneyView(v: unknown): v is JourneyView {
+  return typeof v === "string" && (JOURNEY_VIEWS as readonly string[]).includes(v);
+}
+
+/** persisted structured（部分・不正含む）を安全な StructuredControlInput へ（default で補完）。 */
+function restoreStructured(v: Readonly<Record<string, string>> | undefined): StructuredControlInput {
+  const base = defaultStructuredInput() as unknown as Record<string, string>;
+  const out: Record<string, string> = { ...base };
+  if (v !== undefined) for (const k of Object.keys(v)) if (k in base) out[k] = v[k] as string;
+  return out as unknown as StructuredControlInput;
+}
+
+/** persisted learningHistory を復元（missing/不正 = empty）。 */
+function restoreLearningHistory(
+  v: NonNullable<PersistedJourney["learningHistory"]> | undefined,
+): LearningHistory {
+  if (v === undefined || !Array.isArray(v.entries)) return emptyLearningHistory();
+  const entries: LearningHistoryEntry[] = v.entries
+    .filter((e) => typeof e.itemTitleKey === "string" && typeof e.itemBodyKey === "string")
+    .map((e) => ({
+      itemTitleKey: e.itemTitleKey,
+      itemBodyKey: e.itemBodyKey,
+      mistakeType: e.mistakeType === "false-positive" ? "false-positive" : "missed",
+      ...(isSeverity(e.severity) ? { severity: e.severity } : {}),
+      ...(typeof e.whyItMattersKey === "string" ? { whyItMattersKey: e.whyItMattersKey } : {}),
+      ...(isStep(e.originStepId) ? { originStepId: e.originStepId } : {}),
+      ...(isStep(e.affectedLaterStepId) ? { affectedLaterStepId: e.affectedLaterStepId } : {}),
+      ...(typeof e.consequenceKey === "string" ? { consequenceKey: e.consequenceKey } : {}),
+      ...(isStep(e.revisitStepId) ? { revisitStepId: e.revisitStepId } : {}),
+    }));
+  return {
+    entries,
+    totalMissed: typeof v.totalMissed === "number" ? v.totalMissed : 0,
+    totalFalse: typeof v.totalFalse === "number" ? v.totalFalse : 0,
+  };
+}
+function isSeverity(v: unknown): v is Severity {
+  return v === "low" || v === "medium" || v === "high";
+}
+function isStep(v: unknown): v is JourneyStepId {
+  return typeof v === "string" && (JOURNEY_STEP_IDS as readonly string[]).includes(v);
+}
+
+/**
+ * 復元した Journey からどの view で再開するかを決める（F2）。
+ * decision semantics + progress + journeyComplete + savedView から決定。
+ * Completion Return/Block からは Release へ絶対 resume しない。
+ */
 function resumeViewFor(r: RestoredJourney): JourneyView {
+  // Release 済み or block 済み or 完了 → Result。
   if (r.releaseDecision !== undefined) return "journey-result";
-  if (r.completionDecision !== undefined) return "journey-release";
+  if (r.completionDecision === "block") return "journey-result";
+  if (r.journeyComplete) return "journey-result";
+  // Completion Return → review 工程（Release へは行かない）。
+  if (r.completionDecision === "return") return "journey-review";
+  // Completion Approve / Approve-with-conditions → Release path（interstitial は完了扱いなので release へ）。
+  if (r.completionDecision === "approve" || r.completionDecision === "approve-with-conditions") {
+    return "journey-release";
+  }
+  // decision 未確定: progress で判断。
   if (r.progress.currentStepId === "j7-completion-approval") return "journey-completion";
   if (r.progress.currentStepId === "j8-release-approval") return "journey-release";
+  // Setup 中に保存された場合は setup へ復帰（F1）。
+  if (r.savedView === "journey-setup") return "journey-setup";
   return "journey-review";
 }
 
@@ -288,15 +515,28 @@ export function useJourneyState(app: Application): JourneyApi {
       draftStructured: defaultStructuredInput(),
       resumable: false,
       mustFix: false,
+      learningHistory: emptyLearningHistory(),
+      journeyComplete: false,
+      reviewDrafts: {},
     };
     // 起動時に保存済み journey を検出して Resume 可能にする（P1-2）。domain へ壊れた state を渡さない。
+    // 完了済み journey（release 済み）は in-progress resume として扱わない（P2-5 N6）。
     try {
       const loaded = app.store.load(app.locale);
       const pj = loaded.progress.journey;
       if (pj !== null) {
         const restored = restoreJourney(pj);
         if (restored !== null) {
-          return { ...defaults, locale: loaded.progress.locale, resumable: true };
+          // G3: reload 後の completed 判定は release 済みだけでなく
+          // Completion Block（completionDecision==="block"）や persisted journeyComplete も含める。
+          // restoreJourney が journeyComplete を正しく算出しているのでそれを唯一の真実として使う。
+          const completed = restored.journeyComplete;
+          return {
+            ...defaults,
+            locale: loaded.progress.locale,
+            resumable: !completed,
+            journeyComplete: completed,
+          };
         }
       }
       return { ...defaults, locale: loaded.progress.locale };
@@ -342,6 +582,9 @@ export function useJourneyState(app: Application): JourneyApi {
       releaseConflated: false,
       mustFix: false,
       resumable: true,
+      learningHistory: emptyLearningHistory(),
+      journeyComplete: false,
+      reviewDrafts: {},
       view: "journey-review",
     }), { persist: true });
   }, [update]);
@@ -357,10 +600,15 @@ export function useJourneyState(app: Application): JourneyApi {
         releaseDecision: undefined,
         releaseConflated: false,
         mustFix: false,
+        learningHistory: emptyLearningHistory(),
+        journeyComplete: false,
+        reviewDrafts: {},
         draftStructured: defaultStructuredInput(),
         draftUserAuthored: {},
+        // F1: setup に入った時点で resume 可能（Home へ行って戻れる）。
+        resumable: true,
         view: "journey-setup",
-      }));
+      }), { persist: true });
     },
     [update],
   );
@@ -370,7 +618,8 @@ export function useJourneyState(app: Application): JourneyApi {
 
   const setDraftUserAuthored = useCallback(
     (field: string, text: string) => {
-      update((s) => ({ ...s, draftUserAuthored: { ...s.draftUserAuthored, [field]: text } }));
+      // F1: Setup 中の下書きも永続化する（beginJourney 前でも復元できるように）。
+      update((s) => ({ ...s, draftUserAuthored: { ...s.draftUserAuthored, [field]: text } }), { persist: true });
     },
     [update],
   );
@@ -380,7 +629,21 @@ export function useJourneyState(app: Application): JourneyApi {
       update((s) => ({
         ...s,
         draftStructured: { ...s.draftStructured, [field]: value } as StructuredControlInput,
-      }));
+      }), { persist: true });
+    },
+    [update],
+  );
+
+  // G1: 未 submit の Review 下書きを step 単位で保存する（入力のたびに persist）。
+  const setReviewDraft = useCallback(
+    (draft: ReviewDraft) => {
+      update(
+        (s) => ({
+          ...s,
+          reviewDrafts: { ...s.reviewDrafts, [s.progress.currentStepId]: draft },
+        }),
+        { persist: true },
+      );
     },
     [update],
   );
@@ -388,7 +651,17 @@ export function useJourneyState(app: Application): JourneyApi {
   const beginJourney = useCallback(() => {
     update((s) => {
       const profile = buildUserProfile("user", s.draftUserAuthored, s.draftStructured);
-      return { ...s, profile, progress: initialProgress(), reviews: {}, resumable: true, view: "journey-review" };
+      return {
+        ...s,
+        profile,
+        progress: initialProgress(),
+        reviews: {},
+        resumable: true,
+        learningHistory: emptyLearningHistory(),
+        journeyComplete: false,
+        reviewDrafts: {},
+        view: "journey-review",
+      };
     }, { persist: true });
   }, [update]);
 
@@ -401,19 +674,29 @@ export function useJourneyState(app: Application): JourneyApi {
       update(
         (s) => {
           const reviews = { ...s.reviews, [s.progress.currentStepId]: review };
+          // G1: submit したので当該 step の下書きは破棄（確定 review が source of truth）。
+          const reviewDrafts = { ...s.reviewDrafts };
+          delete reviewDrafts[s.progress.currentStepId];
           const policy = journeyModePolicyFor(s.mode);
-          const next: JourneyState = { ...s, reviews };
-          if (policy.feedbackTiming === "final-only") {
-            // Adoption: 途中で正解を開示しない。そのまま次工程へ進める。
-            return advanceOrApprove({ ...next });
-          }
-          // Guided / Simulation: 直近 review を評価して feedback を表示。
+          const next: JourneyState = { ...s, reviews, reviewDrafts };
+
+          // 全モードで評価し、学習履歴（miss/FP）を累積する（P1-5 N3）。
+          // current review は正解へ直せるが、履歴は消さない。
           const defects = buildDefectSet(s.profile.context.structured, s.profile.profileDefectRules);
           const artifact = buildArtifactForStep(currentRunInput(next), s.progress.currentStepId);
           const evaluation = evaluateArtifactReview(artifact, defects, review);
-          // P1-3: Simulation で critical learning blocker があれば must-fix（Next を出さない）。
+          const vm = buildFeedbackViewModel(artifact, defects, evaluation);
+          const learningHistory = mergeLearningHistory(s.learningHistory, vm);
+          const withHistory: JourneyState = { ...next, learningHistory };
+
+          if (policy.feedbackTiming === "final-only") {
+            // Adoption: 途中で正解を開示しない。履歴は累積しつつ次工程へ進める。
+            return advanceOrApprove(withHistory);
+          }
+          // Guided / Simulation: 直近 review を評価して feedback を表示。
+          // P1-3/P1-4: Simulation で critical learning blocker があれば must-fix（Next を出さない）。
           const mustFix = mustBlockOnCriticalMiss(s.mode, hasCriticalLearningBlocker(evaluation));
-          return { ...next, lastEvaluation: evaluation, mustFix, view: "journey-feedback" };
+          return { ...withHistory, lastEvaluation: evaluation, mustFix, view: "journey-feedback" };
         },
         { persist: true },
       );
@@ -435,10 +718,15 @@ export function useJourneyState(app: Application): JourneyApi {
         const progress = rework(s.progress, stepId, "return", trigger);
         // 戻った step の review はクリアして再レビューさせる。
         const reviews = { ...s.reviews };
+        const reviewDrafts = { ...s.reviewDrafts };
         for (const id of JOURNEY_STEP_IDS) {
-          if (JOURNEY_STEP_IDS.indexOf(id) >= JOURNEY_STEP_IDS.indexOf(stepId)) delete reviews[id];
+          if (JOURNEY_STEP_IDS.indexOf(id) >= JOURNEY_STEP_IDS.indexOf(stepId)) {
+            delete reviews[id];
+            // G1: 再レビュー対象 step の古い下書きも破棄（artifact revision が変わるため）。
+            delete reviewDrafts[id];
+          }
         }
-        return { ...s, progress, reviews, lastEvaluation: undefined, mustFix: false, view: "journey-review" };
+        return { ...s, progress, reviews, reviewDrafts, lastEvaluation: undefined, mustFix: false, view: "journey-review" };
       }, { persist: true });
     },
     [update],
@@ -447,7 +735,36 @@ export function useJourneyState(app: Application): JourneyApi {
   const decideCompletion = useCallback(
     (decision: ApprovalDecision) => {
       update((s) => {
-        const progress = advance(s.progress); // j7 completed -> j8
+        // P1-3 N1: Completion decision を実 workflow transition へ反映する。
+        if (decision === "return") {
+          // Return → 直近の review 工程（J6 等）へ rework。Release へは進めない。
+          const target: JourneyStepId = "j6-test-evidence";
+          const progress = rework(s.progress, target, "return", "approval-prerequisite-changed");
+          const reviews = { ...s.reviews };
+          const reviewDrafts = { ...s.reviewDrafts };
+          for (const id of JOURNEY_STEP_IDS) {
+            if (JOURNEY_STEP_IDS.indexOf(id) >= JOURNEY_STEP_IDS.indexOf(target)) {
+              delete reviews[id];
+              delete reviewDrafts[id];
+            }
+          }
+          return {
+            ...s,
+            completionDecision: decision,
+            progress,
+            reviews,
+            reviewDrafts,
+            lastEvaluation: undefined,
+            mustFix: false,
+            view: "journey-review",
+          };
+        }
+        if (decision === "block") {
+          // Block → Release へ進めない。completion decision を記録して Result（blocked）へ。
+          return { ...s, completionDecision: decision, journeyComplete: true, view: "journey-result" };
+        }
+        // Approve / Approve with Conditions → Release transition（interstitial 経由）。
+        const progress = advance(s.progress); // j7 -> j8
         return { ...s, completionDecision: decision, progress, view: "journey-interstitial" };
       }, { persist: true });
     },
@@ -462,7 +779,14 @@ export function useJourneyState(app: Application): JourneyApi {
     (decision: ApprovalDecision, conflated: boolean) => {
       update((s) => {
         const progress = advance(s.progress);
-        return { ...s, releaseDecision: decision, releaseConflated: conflated, progress, view: "journey-result" };
+        return {
+          ...s,
+          releaseDecision: decision,
+          releaseConflated: conflated,
+          progress,
+          journeyComplete: true,
+          view: "journey-result",
+        };
       }, { persist: true });
     },
     [update],
@@ -483,6 +807,18 @@ export function useJourneyState(app: Application): JourneyApi {
   const causalSummary = useCallback((): readonly CausalLearningEntry[] => {
     return buildCausalLearningSummary(computeJourneyResult(currentRunInput(state)));
   }, [state]);
+
+  // P1-1 H2/H4: 直近 review の human-readable feedback view model。
+  const feedbackViewModel = useCallback((): FeedbackViewModel | undefined => {
+    const ev = state.lastEvaluation;
+    if (ev === undefined) return undefined;
+    const defects = buildDefectSet(state.profile.context.structured, state.profile.profileDefectRules);
+    const artifact = buildArtifactForStep(currentRunInput(state), state.progress.currentStepId);
+    return buildFeedbackViewModel(artifact, defects, ev);
+  }, [state]);
+
+  // P2-4 N5: rework 回数の single source of truth。
+  const reworkCount = useCallback((): number => state.progress.reworkHistory.length, [state]);
 
   // P1-4: Home へ戻る。Journey は破棄せず保持（Resume で復帰可能）。domain state を変えない。
   const goHome = useCallback(() => {
@@ -509,6 +845,14 @@ export function useJourneyState(app: Application): JourneyApi {
           completionDecision: restored.completionDecision,
           releaseDecision: restored.releaseDecision,
           releaseConflated: restored.releaseConflated,
+          // F1: Setup 下書きも復元。
+          draftUserAuthored: restored.draftUserAuthored,
+          draftStructured: restored.draftStructured,
+          // F3/F4: 学習履歴を復元。
+          learningHistory: restored.learningHistory,
+          journeyComplete: restored.journeyComplete,
+          // G1: 未 submit の Review 下書きを復元。
+          reviewDrafts: restored.reviewDrafts,
           lastEvaluation: undefined,
           mustFix: false,
           resumable: true,
@@ -565,6 +909,7 @@ export function useJourneyState(app: Application): JourneyApi {
       setDraftStructured,
       beginJourney,
       currentArtifact,
+      setReviewDraft,
       submitReview,
       proceedAfterFeedback,
       reworkTo,
@@ -574,6 +919,8 @@ export function useJourneyState(app: Application): JourneyApi {
       finalResult,
       completionSummary,
       causalSummary,
+      feedbackViewModel,
+      reworkCount,
       goHome,
       resume,
       goBack,
@@ -590,6 +937,7 @@ export function useJourneyState(app: Application): JourneyApi {
       setDraftStructured,
       beginJourney,
       currentArtifact,
+      setReviewDraft,
       submitReview,
       proceedAfterFeedback,
       reworkTo,
@@ -599,6 +947,8 @@ export function useJourneyState(app: Application): JourneyApi {
       finalResult,
       completionSummary,
       causalSummary,
+      feedbackViewModel,
+      reworkCount,
       goHome,
       resume,
       goBack,
@@ -606,6 +956,48 @@ export function useJourneyState(app: Application): JourneyApi {
       exit,
     ],
   );
+}
+
+/**
+ * 学習履歴に今回の miss / false positive を finding-level で累積する（F4）。
+ * 同一 stable key は 1 度だけ列挙（dedup）。aggregate count は実発生回数を加算。
+ */
+function mergeLearningHistory(prev: LearningHistory, vm: FeedbackViewModel): LearningHistory {
+  const byKey = new Map<string, LearningHistoryEntry>();
+  for (const e of prev.entries) byKey.set(historyEntryKey(e), e);
+
+  const addEntry = (
+    vmItem: FeedbackViewModel["missed"][number],
+    mistakeType: LearningHistoryEntry["mistakeType"],
+  ): void => {
+    const entry: LearningHistoryEntry = {
+      itemTitleKey: vmItem.itemTitleKey,
+      itemBodyKey: vmItem.itemBodyKey,
+      mistakeType,
+      ...(vmItem.severity !== undefined ? { severity: vmItem.severity } : {}),
+      ...(vmItem.whyItMattersKey !== undefined ? { whyItMattersKey: vmItem.whyItMattersKey } : {}),
+      ...(vmItem.originStepId !== undefined ? { originStepId: vmItem.originStepId } : {}),
+      ...(vmItem.affectedLaterStepId !== undefined ? { affectedLaterStepId: vmItem.affectedLaterStepId } : {}),
+      ...(vmItem.consequenceKey !== undefined ? { consequenceKey: vmItem.consequenceKey } : {}),
+      ...(vmItem.revisitStepId !== undefined ? { revisitStepId: vmItem.revisitStepId } : {}),
+    };
+    byKey.set(historyEntryKey(entry), entry);
+  };
+
+  for (const m of vm.missed) addEntry(m, "missed");
+  for (const f of vm.falsePositives) addEntry(f, "false-positive");
+
+  // 決定的順序（entries は mistakeType→title で安定ソート）。
+  const entries = [...byKey.values()].sort((a, b) => {
+    if (a.mistakeType !== b.mistakeType) return a.mistakeType < b.mistakeType ? -1 : 1;
+    return a.itemTitleKey < b.itemTitleKey ? -1 : a.itemTitleKey > b.itemTitleKey ? 1 : 0;
+  });
+
+  return {
+    entries,
+    totalMissed: prev.totalMissed + vm.missed.length,
+    totalFalse: prev.totalFalse + vm.falsePositives.length,
+  };
 }
 
 /**
@@ -617,7 +1009,16 @@ function advanceOrApprove(s: JourneyState): JourneyState {
   const progress = advance(s.progress);
   const nextStep = progress.currentStepId;
   if (nextStep === "j7-completion-approval") {
-    return { ...s, progress, lastEvaluation: undefined, mustFix: false, view: "journey-completion" };
+    // G2: completion step へ（再）到達したので stale な completion decision をクリアする。
+    // 直前の Return → rework → 再到達で "return" が残っていると resume が review へ誤誘導するため。
+    return {
+      ...s,
+      progress,
+      completionDecision: undefined,
+      lastEvaluation: undefined,
+      mustFix: false,
+      view: "journey-completion",
+    };
   }
   if (isJourneyComplete(progress)) {
     return { ...s, progress, lastEvaluation: undefined, mustFix: false, view: "journey-result" };
