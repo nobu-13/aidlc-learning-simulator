@@ -1,6 +1,6 @@
 // UI views（presentation・domain と分離。BR8.1）。
 // domain state（ScenarioSession）は app 層が保持し、ここは render / user intent / a11y のみを担う。
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { AppApi } from "../app/use-app-state.ts";
 import type { Application } from "../app/application-orchestrator.ts";
 import type { I18nResolver } from "../i18n/locale-resources.ts";
@@ -184,21 +184,60 @@ export function ScenarioIntroView(props: { app: AppApi; t: I18nResolver["t"] }):
   );
 }
 
+/**
+ * 1 つの DecisionPoint に厳密に束縛された「選択肢 + 判断メモ」エディタ。
+ * 親が key={decisionPointId} で描画するため、DecisionPoint が変わると本 component は
+ * 破棄され新しい note state（initialNote 由来）で作り直される。これにより、ある Decision の
+ * note が別 Decision の record へ付着する事故を構造的に排除する（mode 非依存・§note isolation）。
+ * 文字列一致による dedupe は行わない（同一文言を複数 Decision へ意図的に入力するのは正当）。
+ */
+function DecisionNoteEditor(props: {
+  dp: import("../domain/entities.ts").DecisionPoint;
+  scenario: ValidatedScenario;
+  initialNote: string;
+  app: AppApi;
+  t: I18nResolver["t"];
+}): JSX.Element {
+  const { dp, scenario, initialNote, app, t } = props;
+  const [note, setNote] = useState(initialNote);
+  return (
+    <>
+      <ul className="options">
+        {dp.optionIds.map((oid) => {
+          const opt = scenario.decisionOptions.get(oid);
+          if (opt === undefined) return null;
+          return (
+            <li key={oid}>
+              <button
+                className="option-btn"
+                data-testid={`option-${oid}`}
+                onClick={() => app.choose(oid, note.trim() || undefined)}
+              >
+                {t(opt.labelKey)}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="form-field">
+        <label htmlFor="note">{t("scenario.decision.note")}</label>
+        <textarea
+          id="note"
+          data-testid="note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+        />
+      </div>
+    </>
+  );
+}
+
 export function ScenarioView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.Element {
   const { app, t } = props;
-  // note は Decision 単位。currentDecisionPointId が変わるたびに、その DP に既に記録された
-  // note（あれば）を初期値にする。無ければ空（BUG 4.3 / §6: carry-over と重複を防ぐ）。
-  const [note, setNote] = useState("");
   const { scenario, progression, currentDecisionPointId, showFeedback, mode, feedback } = app.state;
   const dpId = currentDecisionPointId;
-  // この DP に対応する既存 DecisionRecord の note（goBack 後の再表示に使う）。
-  const recordedNote =
-    progression?.decisionRecords.find((r) => r.decisionPointId === dpId)?.note ?? "";
-  useEffect(() => {
-    setNote(recordedNote);
-    // dpId 変更時のみ初期化（入力途中に上書きしない）。recordedNote は dpId に一意対応。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dpId]);
 
   if (scenario === undefined || progression === undefined || currentDecisionPointId === undefined) {
     return <ErrorView app={app} application={undefined} t={t} />;
@@ -206,6 +245,13 @@ export function ScenarioView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.
   const dp = scenario.decisionPoints.get(currentDecisionPointId);
   if (dp === undefined) return <ErrorView app={app} application={undefined} t={t} />;
   const policy = presentationPolicyFor(mode);
+
+  // note は「現在提示している DecisionPoint」に厳密に束縛する（mode 非依存）。
+  // 単一の浮いた state が別 Decision の record へ付着する事故を構造的に防ぐため、
+  // この DP 専用の DecisionNoteEditor（key={dpId}）を用いる。初期値はこの DP に
+  // 既に記録された note（未回答なら空）。文字列一致による dedupe は一切しない。
+  const recordedNote =
+    progression.decisionRecords.find((r) => r.decisionPointId === dpId)?.note ?? "";
 
   return (
     <section aria-labelledby="sc-h" className="scenario">
@@ -239,34 +285,14 @@ export function ScenarioView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.
             </div>
           ) : null}
 
-          <ul className="options">
-            {dp.optionIds.map((oid) => {
-              const opt = scenario.decisionOptions.get(oid);
-              if (opt === undefined) return null;
-              return (
-                <li key={oid}>
-                  <button
-                    className="option-btn"
-                    data-testid={`option-${oid}`}
-                    onClick={() => app.choose(oid, note.trim() || undefined)}
-                  >
-                    {t(opt.labelKey)}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="form-field">
-            <label htmlFor="note">{t("scenario.decision.note")}</label>
-            <textarea
-              id="note"
-              data-testid="note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-            />
-          </div>
+          <DecisionNoteEditor
+            key={dpId}
+            dp={dp}
+            scenario={scenario}
+            initialNote={recordedNote}
+            app={app}
+            t={t}
+          />
         </div>
       ) : (
         <div className="feedback-panel">
