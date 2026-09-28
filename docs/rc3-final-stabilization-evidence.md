@@ -113,3 +113,37 @@ Branch: `fix/rc3-final-stabilization`（commit/push/PR/merge/AWS/deploy/tag は�
 
 ### Limitations
 - 実ブラウザ手動監査は環境制約で未実施（byte-identical live bundle + marker + automated tests で担保）。Live RESOLVED 断定はしない。
+
+---
+
+## RC3.1 Stable Close Patch
+
+Status: **RC3.1 Programmatically Verified / Closed**（Live Human Verified / Live RESOLVED / RC3 Stable ではない）
+Base main: `145e8f12d0ba4550f70828306b706b311a6ecf31`
+Branch: `fix/rc3.1-stable-close`
+
+Final Live Human UX Audit で残った明確・局所的な既知 Finding を最小差分で閉じる。RC3 の大規模改修は行わない。
+
+| Finding | 内容 | 対応 | 結果 |
+|---------|------|------|------|
+| UX-FT-001 | Feedback traceability incomplete（downstream 無しで field が消える） | UI 正規化。missed/false の全 learning event で Item / Severity(or N/A) / Why / Origin / Affected later step(or explicit N/A) / Consequence を常に表示。`FeedbackTraceability` 共通コンポーネント + `rc3.trace.*` の明示的 N/A key。false positive は「なぜ FP か・downstream 該当なし」を説明。**Ground Truth / TP-FP-FN-TN / severity 評価は不変**。 | Programmatically Closed |
+| UX-RH-001 | Learning History incomplete（event ごとに schema が不揃い） | Result の history-entry を全 event 同一 schema へ正規化。Item title / Mistake type / Severity(or N/A) / Why / Origin / Consequence(or explicit N/A) / Revisit を常に表示。false positive も例外にしない。存在しない domain data は作らず UI normalization のみ。 | Programmatically Closed |
+| UX-NAV-001 | Duplicate Home | shell の `journey-nav-home` を唯一の Home に一本化。`backKind==="home"` 時の二つ目の ⌂ Home（`journey-nav-back-home`）を削除。Back（feedback）と Resume/domain state は不変。 | Programmatically Closed |
+| UX-MOB-001 | Language select < 44px | `.lang-switcher select` の `min-height` を 40px→44px。mobile(<=400px) でも 44px + width:100% を明示。header layout / overflow は不変。 | Programmatically Closed |
+| UX-RW-001 | Rework artifact does not visibly change | **RC4 へ正式 Deferred**（今回コード変更なし）。RC4 で Actual Artifact Rework → Revised Artifact → Diff → Downstream Propagation → Evidence/Risk/Approval 反映を実装予定。RC3.1 で中途半端な fake artifact regeneration は追加しない（二重実装回避）。 | Deferred to RC4 |
+
+### Added deterministic tests（`src/ui/rc3.1-stable-close.test.tsx`, 15 件）
+1 miss w/ downstream→Affected 表示 / 2 miss w/o downstream→explicit N/A（omission 禁止）/ 3 false positive traceability（undefined/null/internal id なし）/ 4 history miss w/ consequence full schema / 5 全 history entry で全 field 非空 / 6 history false positive で全 field + N/A / 7-11 Setup·Review·Completion·Release·Result で Home ちょうど 1 / 12 CSS min-height>=44px / 13 Home→Resume regression / 14 Completion approve·return·block semantics 不変 / 15 Simulation critical miss で Next なし。
+
+### Gates
+- typecheck: PASS / lint: PASS
+- test: **284 passed**（269 baseline 全維持 + 15 new）
+- build: PASS / gzip JS 118.56 KB（< 300 KB）
+- dependency diff: なし / deploy/ diff: なし / runtime AI・network: なし
+- 変更ファイル: `src/app/app.tsx` / `src/i18n/messages.ts`（ja·en 対称）/ `src/ui/journey-views.tsx` / `src/ui/styles.css` / `src/ui/rc3.1-stable-close.test.tsx`（新規）
+
+### Close 判定
+- P1 known deterministic findings（UX-FT-001 / UX-RH-001）Closed
+- Duplicate Home（UX-NAV-001）Closed / Mobile language target（UX-MOB-001）Closed
+- 全 automated tests / typecheck / lint / build PASS、dependency·deploy 変更なし
+→ **RC3.1 Programmatically Verified / Closed**。今回 Live 再監査は未実施のため Live Human Verified / RC3 Stable とはしない。

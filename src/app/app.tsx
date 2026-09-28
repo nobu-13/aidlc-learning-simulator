@@ -167,13 +167,11 @@ function JourneyShell(props: {
           >
             ⌂ {t("rc3.nav.home")}
           </button>
+          {/* UX-NAV-001: Home は shell の journey-nav-home が唯一。backKind==="home" のとき
+              二つ目の ⌂ Home を出さない（重複 Home を排除）。Back（feedback）のみ追加表示する。 */}
           {backKind === "back" ? (
             <button className="shell-back" data-testid="journey-nav-back" onClick={() => journey.goBack()}>
               ← {t("rc3.nav.back")}
-            </button>
-          ) : backKind === "home" ? (
-            <button className="shell-back" data-testid="journey-nav-back-home" onClick={() => journey.goBack()}>
-              ⌂ {t("rc3.nav.home")}
             </button>
           ) : null}
         </div>
