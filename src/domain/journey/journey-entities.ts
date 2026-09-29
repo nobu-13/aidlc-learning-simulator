@@ -213,18 +213,35 @@ export interface ArtifactItem {
    */
   readonly originStepId?: JourneyStepId | undefined;
   /**
-   * item 本文の内容状態（RC4 Phase 1）。同じ slot でも defect の未解決/解決で本文が変わることを表す。
+   * item 本文の内容状態（RC4 Phase 1 / Final で partial 追加）。
+   * 同じ slot でも defect の resolution stage で本文が変わることを表す。
    * - baseline: defect と無関係な通常項目。
-   * - defective: defect が有効かつ未解決（欠陥のある本文）。
-   * - corrected: defect が Rework で解決済み（改善された本文）。
+   * - defective: defect が有効かつ未解決（欠陥のある本文・stage 0）。
+   * - partial: multi-stage defect が改善されたが acceptance criteria 未達の中間 stage。
+   * - corrected: 最終 resolution stage に到達（改善された本文）。
    * 採点母集団の決定は reviewability が担う（contentState は本文選択と表示のためのメタ）。
    */
-  readonly contentState?: "baseline" | "defective" | "corrected" | undefined;
+  readonly contentState?: "baseline" | "defective" | "partial" | "corrected" | undefined;
+  /**
+   * RC4 Final: partial/corrected の resolution stage index（multi-stage defect のみ）。
+   * 表示・Diff・履歴で「Revision いくつ相当の改善か」を示す。binary defect では undefined。
+   */
+  readonly resolutionStageIndex?: number | undefined;
+  /** RC4 Final: partial のとき残る課題の locale key（Remaining issue 表示）。 */
+  readonly remainingIssueKey?: string | undefined;
+  /** RC4 Final: partial のとき「なぜまだ不十分か」の locale key。 */
+  readonly whyInsufficientKey?: string | undefined;
   /**
    * 選択された本文 variant の識別子（RC4 Phase 1・Diff の突合キー）。
    * content template の slot × variant を一意に指す。Phase 3 の Diff Engine が before/after を比較する。
    */
   readonly variantKey?: string | undefined;
+  /**
+   * RC6 P2: この item（slot）自身の変更サマリ locale key（finding 単位）。
+   * corrected/partial 化したときに設定する。Diff Engine はこれを finding 単位の reason として使い、
+   * 別 finding の理由を reuse しない（step 全体の changeSummaryKeys からの近似 fallback を廃する）。
+   */
+  readonly changeSummaryKey?: string | undefined;
 }
 
 /**
@@ -241,7 +258,21 @@ export interface GeneratedArtifact {
   /** user-authored 引用（field id → 生テキスト）。preserve / quote のみ。 */
   readonly quotedUserText: Readonly<Partial<Record<UserAuthoredFieldId, string>>>;
   readonly provenanceRefs: readonly string[];
+  /**
+   * localRevision（RC4 Phase 3 で用語明確化）。当該 step 自身が Human Return → Agent Rework された回数。
+   * 歴史的経緯でフィールド名は `revision` のままだが、意味は localRevision（この step のローカル改訂回数）。
+   * Artifact identity には使わない（identity は artifactVersion）。
+   */
   readonly revision: number;
+  /**
+   * artifactVersion（RC4 Phase 3・Artifact Identity の唯一の source）。
+   * Artifact content 全体の version。content change のたびに増える:
+   *  - local Agent Rework（localRevision +1 と同時に +1）
+   *  - upstream propagation による content 変化（localRevision 据え置きで +1）
+   *  - 将来の Change Scope 等
+   * hard invariant: same artifactId(= profileId+stepId+artifactVersion) → same content。
+   */
+  readonly artifactVersion: number;
   readonly status: ArtifactStatus;
   /**
    * この Artifact を生成した Archetype（RC4 Phase 1）。
@@ -262,6 +293,25 @@ export interface GeneratedArtifact {
    * Phase 1 では常に空配列（Decision Semantics は後続 Phase）。additive に前方確保する。
    */
   readonly carriedConditionKeys: readonly string[];
+  /**
+   * RC6 P1-B: 上流工程で確定した accepted upstream fact（この step が前提として扱う値）。
+   * 「値が無い」と再要求せず、「確定済みの目標を architecture/validation が満たすか」を評価するための
+   * 前提として提示する。derived（永続しない・EffectiveScenarioState から注入）。
+   * fact を持たない step では空配列。
+   */
+  readonly acceptedFacts: readonly AcceptedFactRef[];
+}
+
+/**
+ * RC6 P1-B: Artifact に載せる accepted upstream fact の表示用参照（locale key のみ・semantic は id）。
+ * domain 実体は effective-scenario-state.AcceptedFact。ここでは表示に必要な最小情報だけを持つ。
+ */
+export interface AcceptedFactRef {
+  readonly factId: string;
+  readonly sourceStepId: JourneyStepId;
+  readonly labelKey: string;
+  readonly valueLabelKey: string;
+  readonly statementKey: string;
 }
 
 // ---------- Defect ----------
@@ -282,6 +332,42 @@ export type DefectCategory =
   | "unresolved-risk";
 
 export type Severity = "low" | "medium" | "high";
+
+/**
+ * RC4 Final: Finding / Defect の resolution 状態（data-driven multi-stage resolution）。
+ * - unresolved: まだ 1 度も rework されていない（欠陥のまま）。
+ * - partial: rework で改善されたが、acceptance criteria をまだ満たしていない中間状態。
+ * - resolved: 最終 resolution stage に到達（acceptance criteria を満たした）。
+ * binary defect は unresolved → resolved のみ（partial を経由しない）。
+ */
+export type DefectResolutionState = "unresolved" | "partial" | "resolved";
+
+/**
+ * RC4 Final: 1 defect の resolution stage（data-driven）。
+ * stage 0 = 未解決（欠陥のある本文）を index 0 とし、以降 Return のたびに index を 1 進める。
+ * 最終 index（isTerminal=true）に到達したら resolved。中間 index は partial。
+ *
+ * すべての defect に人工的な partial を作らない（Human Decision）:
+ *  - binary defect: resolutionStages を持たない（generator が defective/corrected の 2 状態で扱う）。
+ *  - multi-stage defect: resolutionStages を宣言し、各 stage の本文・残課題を data として持つ。
+ *
+ * 本文テキストは持たず locale key で参照する（data / logic 分離・tech-stack rule）。
+ */
+export interface DefectResolutionStage {
+  /** 0 起点の stage index（0 = defective/unresolved, 最終 = resolved）。 */
+  readonly stageIndex: number;
+  /** この stage の resolution 状態。 */
+  readonly state: DefectResolutionState;
+  /** 最終 stage か（true なら以降 Return しても next stage が無く no-op）。 */
+  readonly isTerminal: boolean;
+  /**
+   * この stage の Artifact 本文 locale key（任意）。
+   * data / logic 分離のため通常は content template（slot.stages）が per-archetype に持つ。
+   * defect-catalog は archetype 非依存なので、ここに archetype 固有 key を書かない
+   * （書くと domain drift になる）。generator は slot.stages を優先し、無ければこの key を使う。
+   */
+  readonly bodyKey?: string | undefined;
+}
 
 /**
  * Defect 定義（Ground Truth）。structured input + step + profile から決定的に有効化される。
@@ -305,6 +391,13 @@ export interface DefectDefinition {
         readonly addsRiskDimensionIds: readonly DimensionId[];
       }
     | undefined;
+  /**
+   * RC4 Final: data-driven multi-stage resolution stages（additive）。
+   * 省略時は binary（unresolved → resolved）。存在する場合、stageIndex 昇順・index 0 起点・
+   * 最終要素が isTerminal=true であること（defect-catalog が保証）。
+   * Ground Truth の identity / severity / consequence は変えない（解決経路のみを追加する）。
+   */
+  readonly resolutionStages?: readonly DefectResolutionStage[] | undefined;
 }
 
 // ---------- Review（新 domain model・Human Decision 3）----------
@@ -326,6 +419,20 @@ export interface ReviewFinding {
   readonly severity?: Severity | undefined;
 }
 
+/**
+ * step-level の Approve with Conditions で付ける構造化条件の入力（RC6 P1-A）。
+ * ArtifactReview に載せて submit 時に first-class な ConditionalApproval へ変換する。
+ * free-text noteText とは別（条件・必要証跡・検証時点を構造化）。
+ */
+export interface StepConditionInput {
+  /** 条件本文（空白のみは無効）。 */
+  readonly condition: string;
+  /** 必要な証跡（任意）。 */
+  readonly requiredEvidence?: string | undefined;
+  /** 検証すべき時点 / 期限ゲート（ConditionDueGate 文字列）。 */
+  readonly dueGate: "before-release" | "at-release" | "post-release";
+}
+
 /** 1 つの Artifact に対する User の Review（採点入力）。 */
 export interface ArtifactReview {
   readonly artifactId: string;
@@ -335,6 +442,12 @@ export interface ArtifactReview {
   readonly gateDecision: GateDecision;
   /** 採点対象外の自由メモ（quote のみ）。 */
   readonly noteText?: string | undefined;
+  /**
+   * RC6 P1-A: gateDecision === "approve-with-conditions" のときに付ける構造化条件。
+   * step-level の条件付き承認を下流・Completion・Release・Result まで消えずに伝える source。
+   * 空/未指定なら条件なし（この場合 UI は approve-with-conditions を選ばせない想定）。
+   */
+  readonly conditions?: readonly StepConditionInput[] | undefined;
 }
 
 export type { DimensionId };

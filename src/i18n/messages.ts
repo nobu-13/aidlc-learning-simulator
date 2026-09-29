@@ -2,6 +2,8 @@
 // Scenario 固有の文言（titleKey/promptKey/labelKey 等）は Scenario JSON の localeBundles で供給する。
 import type { LocaleBundle } from "./locale-resources.ts";
 import { rc4ContentJa, rc4ContentEn } from "./rc4-content.ts";
+import { rc5ContentJa, rc5ContentEn } from "./rc5-content.ts";
+import { rc6ContentJa, rc6ContentEn } from "./rc6-content.ts";
 
 export const ja: LocaleBundle = {
   "app.title": "AI-DLC 学習シミュレーター",
@@ -16,12 +18,20 @@ export const ja: LocaleBundle = {
   "nav.reset": "進捗をリセット",
 
   "home.chooseMode": "学習モードを選ぶ",
+  "a11y.skipToContent": "本文へスキップ",
+  "a11y.primaryNav": "主ナビゲーション",
   "mode.guided": "ガイド付き学習",
   "mode.guided.desc": "判断の前後に AI-DLC の概念を説明します（初学者向け）。",
+  "mode.guided.goal": "目的: AI-DLC の考え方を理解する",
+  "mode.guided.output": "得られるもの: 各判断の解説とヒント",
   "mode.simulation": "シミュレーション",
   "mode.simulation.desc": "ヒントを減らし、あなた自身で判断します。",
+  "mode.simulation.goal": "目的: 自力で品質を判断する力を試す",
+  "mode.simulation.output": "得られるもの: レビュー後のフィードバックと成績",
   "mode.adoption-review": "導入レビュー",
   "mode.adoption-review.desc": "自分の判断を振り返り、実チームでの導入を検討します。",
+  "mode.adoption-review.goal": "目的: 自分のプロジェクトへの適用を検討する",
+  "mode.adoption-review.output": "得られるもの: ゲートマップ・役割分担・導入の次の一歩",
 
   "scenario.intro.start": "このシナリオを開始",
   "scenario.decision.prompt": "判断してください",
@@ -120,6 +130,15 @@ export const ja: LocaleBundle = {
   "home.practice.desc": "選ぶだけでなく、自分で作り・レビューします。",
   "home.continue.title": "学習を再開",
   "home.continue.desc": "前回の続きから再開できます。",
+  // RC4 Final（STEP J）: Gym を練習の場として明確化（Home の mode 説明を再掲しない）。
+  "rc4.gym.home.title": "トレーニング・ジム",
+  "rc4.gym.home.tagline": "弱点を選んで反復練習する場です。まず本編（Journey）を体験してから戻ると効果的です。",
+  "rc4.gym.weakAreas.title": "あなたの弱点領域",
+  "rc4.gym.weakAreas.desc": "前回のレビュー結果から、伸びしろのある領域です。",
+  "rc4.gym.weakAreas.cta": "この領域を練習する",
+  "rc4.gym.fullRun.title": "通し練習（フルシナリオ）",
+  "rc4.gym.fullRun.desc": "要件からリリースまでを一気通貫で練習します。",
+  "rc4.gym.fullRun.cta": "通し練習を選ぶ",
   "home.continue.cta": "続きから再開",
   "home.cta.start": "はじめる（ガイド付き学習）",
 
@@ -285,10 +304,14 @@ export const ja: LocaleBundle = {
   "rc3.fb.gate.sound": "妥当なゲート判断です。",
   "rc3.fb.gate.too-lenient": "未解決の問題が残ったまま通しています（甘すぎ）。",
   "rc3.fb.gate.too-strict": "問題が無いのに止めています（厳しすぎ）。",
+  "rc3.fb.gate.acknowledged-risk": "問題を認識した上で進行しました。リスクは後工程へ残ります。",
   "rc3.fb.betterExample": "良いレビュー例",
   "rc3.fb.assistedRework": "差し戻すと、この工程からやり直せます。",
   "rc3.fb.wouldHave": "このまま進めた場合に後工程で起きること",
   "rc3.fb.mustFix": "重大な見逃しがあります。次に進む前に修正してください。",
+  "rc3.fb.returnRequired": "この工程を「差し戻し」と判断しました。次の工程へは進めません。成果物を修正（差し戻し→Agent 修正→再レビュー）してから再度判断してください。",
+  "rc3.fb.returnNoTarget": "指摘（finding）を 1 つも選んでいないため、差し戻しても修正対象がなく改訂されません。修正したい項目にチェックを入れてから差し戻してください。",
+  "rc3.fb.blocked": "この工程を「ブロック」と判断しました。次の工程へは進めません。差し戻して再検討してください。",
   "rc3.fb.next": "次の工程へ",
   "rc3.fb.rework": "差し戻す",
   "rc3.fb.noDefectHere": "この成果物に問題はありませんでした。承認が妥当です。",
@@ -299,6 +322,11 @@ export const ja: LocaleBundle = {
   // UX-FT-001 / UX-RH-001: traceability を常に説明する共通ラベルと明示的 N/A。field は消さない。
   "rc3.trace.item": "項目",
   "rc3.trace.severity": "深刻度",
+  // RC4 Final: reviewer 判定と基準（Ground Truth）severity を分離表示する。
+  "rc4.trace.reviewerSeverity": "あなたの判定",
+  "rc4.trace.groundTruthSeverity": "基準上の深刻度",
+  "rc4.trace.severity.match": "基準と一致",
+  "rc4.trace.severity.mismatch": "基準と相違",
   "rc3.trace.why": "なぜ重要か",
   "rc3.trace.origin": "由来の工程",
   "rc3.trace.affected": "影響する後工程",
@@ -361,6 +389,10 @@ export const ja: LocaleBundle = {
   "rc3.release.title": "リリース承認",
   "rc3.release.desc": "実環境へリリースしてよいかを判断します。工程完了承認とは別の判断です。",
   "rc3.release.remainingRisk": "残存リスク",
+  // RC Micro-Fix #1: conflation を「ユーザー自身の stance を選ぶ設問」として提示する
+  //（Product が Completion=Release と断定しているように見せない）。
+  "rc3.release.conflate.prompt": "あなたの判断：工程完了承認とリリース承認を同じ判断として扱いますか？",
+  "rc3.release.conflate.option": "同じ判断として扱う（工程完了の承認をもってリリースも承認済みとする）",
   "rc3.approve": "承認する",
   "rc3.approve-with-conditions": "条件付きで承認",
   "rc3.return": "差し戻す",
@@ -511,25 +543,56 @@ export const ja: LocaleBundle = {
   "rc3.revision.current": "現在のリビジョン",
   "rc3.trigger.requirement-changed": "要件の変更",
   "rc3.trigger.scope-changed": "スコープの変更",
-  "rc3.trigger.critical-finding": "重大な問題の検出",
+  // RC Micro-Fix #4: severity-neutral wording。差し戻し理由は「指摘に基づく差し戻し」であって
+  // 特定の severity（Medium 等）と矛盾する "重大な問題" という強調語を使わない。
+  // finding の severity は Feedback の reviewerSeverity / groundTruthSeverity が唯一のソース。
+  "rc3.trigger.critical-finding": "レビュー指摘に基づく差し戻し",
   "rc3.trigger.downstream-mismatch": "後工程との不整合",
   "rc3.trigger.approval-prerequisite-changed": "承認前提の変更",
 
   // Consequence source (P2-3)
   "rc3.consequence.origin": "由来の工程",
   "rc3.consequence.cause": "前工程での見逃しが、この工程で顕在化しています（新しい問題ではありません）。",
+  // RC4 Integrity P1-3: 改善（前工程を修正した）伝播は「解消」として表示し、顕在化文言と混同しない。
+  "rc4.prop.improved.badge": "解消された影響（前工程の修正由来）",
+  "rc4.prop.improved.cause": "前工程を修正したため、この工程への悪影響は解消されています（現在の問題ではありません）。",
+  // STEP 7: 伝播 item がこの工程の Gate へどう影響するか（human-readable・内部 enum は出さない）。
+  "rc4.prop.gateImpact.label": "この工程のゲートへの影響",
+  "rc4.prop.gateImpact.upstream": "上流工程で解決すべき事項です（この工程のゲートを直接ブロックはしません）。",
+  "rc4.prop.gateImpact.observation": "観察のみ（対応は不要です）。",
 
   // Completion summary (P2-4)
   "rc3.completion.summary.title": "工程完了サマリー",
-  "rc3.completion.summary.evidence": "Evidence の状態",
-  "rc3.completion.summary.evidence.sufficient": "十分",
-  "rc3.completion.summary.evidence.insufficient": "不足",
+  "rc3.completion.summary.evidence": "証跡アーティファクトの状態",
+  "rc3.completion.summary.evidence.sufficient": "揃っている",
+  "rc3.completion.summary.evidence.insufficient": "不足あり",
   "rc3.completion.summary.evidence.not-reviewed": "未レビュー",
   "rc3.completion.summary.unresolved": "未解決の問題",
   "rc3.completion.summary.remainingRisk": "残存リスク",
   "rc3.completion.summary.reworkCount": "手戻り回数",
   "rc3.completion.summary.completedSteps": "完了した工程",
   "rc3.completion.summary.note": "これは工程完了の判断材料です（リリース判断とは別です）。",
+
+  // RC4 Integrity (STEP 4): Decision Readiness Summary（Completion / Release / Result 共通）
+  "rc4.readiness.title": "リリース判断材料",
+  "rc4.readiness.desc": "この状態のまま実環境へリリースしてよいかを、以下の判断材料で確認してください。",
+  "rc4.readiness.completionDecision": "工程完了の判断",
+  "rc4.readiness.completionDecision.none": "未判断",
+  "rc4.readiness.evidence": "Evidence の状態",
+  "rc4.readiness.unresolved": "未解決の指摘",
+  "rc4.readiness.highestSeverity": "未解決の最高深刻度",
+  "rc4.readiness.highestSeverity.none": "なし",
+  "rc4.readiness.residualRisk": "残存リスク（総合）",
+  "rc4.readiness.residualRisks.title": "残存リスクの内訳",
+  "rc4.readiness.residualRisks.none": "残存リスクはありません。",
+  "rc4.readiness.origin": "発生源の工程",
+  "rc4.readiness.releaseImpact": "リリースの影響",
+  "rc4.readiness.releaseImpact.body": "リリースは最終の人間ゲートです。ここで残存リスクを受容するか判断します。取り消しには相応のコストがかかります。",
+  "rc4.readiness.conditional": "条件付きで工程完了を承認済み（未解決の条件が残っています）。",
+  "rc4.readiness.reviewedSteps": "レビュー済み工程",
+  "rc4.reviewLabel.reviewed": "レビュー済み",
+  "rc4.reviewLabel.passed": "通過",
+  "rc4.reviewLabel.rework-required": "要再作業",
 
   // Result causal summary (P2-5)
   "rc3.result.causal.title": "因果学習サマリー（なぜ・どこへ戻るか）",
@@ -552,11 +615,18 @@ export const ja: LocaleBundle = {
   "rc3.why.remaining-risks": "残存リスクが管理されていませんでした。",
 
   // Canonical sample project (user-authored quotes)
+  // RC4 Integrity: Project Context = single source of truth。二段階承認を「問い合わせ管理として
+  // 自然な業務ルール」として明示し、PII / 外部SaaS の boundary を推測不要にする（Artifact/Ground Truth
+  // と同じ business rule をユーザーが最初に見る Context から読み取れること）。
   "rc3.sample.goal": "社内の個人情報を扱う問い合わせ管理ツールを構築する。",
-  "rc3.sample.context": "対象は社内ユーザー。外部 SaaS と一部連携し、高可用性が求められる。",
-  "rc3.sample.requirements": "問い合わせの登録・検索・担当割当・状態管理を提供する。",
-  "rc3.sample.acceptanceCriteria": "個人情報を外部へ送信しない／主要操作が高可用で提供される。",
-  "rc3.sample.constraints": "個人情報を外部サービスへ送信しないこと。",
+  "rc3.sample.context":
+    "対象は社内ユーザー。問い合わせは「登録 → 担当者による一次対応 → 責任者による二次承認 → クローズ」の流れで扱う。監視・通知のため一部の外部 SaaS と連携し、高可用性が求められる。",
+  "rc3.sample.requirements":
+    "問い合わせの登録・検索・担当割当・状態管理を提供する。対応状態は一次対応（担当者）と二次承認（責任者）の二段階承認で確定する。",
+  "rc3.sample.acceptanceCriteria":
+    "一次対応→二次承認の二段階承認フローを検証できる／個人情報を外部へ送信しない／主要操作が高可用で提供される。",
+  "rc3.sample.constraints":
+    "個人情報（PII）を外部サービスへ送信しないこと。外部 SaaS 連携自体は禁止ではなく、送信してよいのは個人情報を含まない監視イベント・メタデータに限る。",
 };
 
 export const en: LocaleBundle = {
@@ -572,12 +642,20 @@ export const en: LocaleBundle = {
   "nav.reset": "Reset progress",
 
   "home.chooseMode": "Choose a learning mode",
+  "a11y.skipToContent": "Skip to content",
+  "a11y.primaryNav": "Primary navigation",
   "mode.guided": "Guided Learning",
   "mode.guided.desc": "Explains AI-DLC concepts around each decision (for beginners).",
+  "mode.guided.goal": "Goal: understand how AI-DLC thinks",
+  "mode.guided.output": "You get: explanations and hints around each decision",
   "mode.simulation": "Simulation",
   "mode.simulation.desc": "Fewer hints; you make the calls yourself.",
+  "mode.simulation.goal": "Goal: test your own quality judgment",
+  "mode.simulation.output": "You get: post-review feedback and a score",
   "mode.adoption-review": "Adoption Review",
   "mode.adoption-review.desc": "Reflect on your decisions and consider adoption in a real team.",
+  "mode.adoption-review.goal": "Goal: consider applying this to your own project",
+  "mode.adoption-review.output": "You get: a gate map, responsibilities, and next steps for adoption",
 
   "scenario.intro.start": "Start this scenario",
   "scenario.decision.prompt": "Make a decision",
@@ -673,6 +751,15 @@ export const en: LocaleBundle = {
   "home.practice.desc": "Not just picking — create and review yourself.",
   "home.continue.title": "Resume learning",
   "home.continue.desc": "Pick up where you left off.",
+  // RC4 Final (STEP J): frame the Gym as a practice space (do not re-show Home's mode explanation).
+  "rc4.gym.home.title": "Training Gym",
+  "rc4.gym.home.tagline": "A place to drill your weak areas. Most effective after you've tried the main Journey.",
+  "rc4.gym.weakAreas.title": "Your weak areas",
+  "rc4.gym.weakAreas.desc": "Areas with room to grow, based on your last review result.",
+  "rc4.gym.weakAreas.cta": "Practice this area",
+  "rc4.gym.fullRun.title": "Full run (whole scenario)",
+  "rc4.gym.fullRun.desc": "Practice end to end, from requirements to release.",
+  "rc4.gym.fullRun.cta": "Choose a full run",
   "home.continue.cta": "Resume",
   "home.cta.start": "Start (Guided Learning)",
 
@@ -829,10 +916,14 @@ export const en: LocaleBundle = {
   "rc3.fb.gate.sound": "Sound gate decision.",
   "rc3.fb.gate.too-lenient": "You passed it with unresolved issues (too lenient).",
   "rc3.fb.gate.too-strict": "You blocked it with no issues (too strict).",
+  "rc3.fb.gate.acknowledged-risk": "You proceeded knowing the issue. The risk carries into later steps.",
   "rc3.fb.betterExample": "Better review example",
   "rc3.fb.assistedRework": "Returning lets you redo this step.",
   "rc3.fb.wouldHave": "What would happen downstream if you proceed",
   "rc3.fb.mustFix": "There is a critical miss. Fix it before proceeding.",
+  "rc3.fb.returnRequired": "You decided to return this step for rework. You cannot proceed to the next step. Fix the artifact (return → agent rework → re-review), then decide again.",
+  "rc3.fb.returnNoTarget": "You did not select any finding, so returning has nothing to fix and produces no new revision. Check the item you want fixed, then return.",
+  "rc3.fb.blocked": "You decided to block this step. You cannot proceed to the next step. Return it and reconsider.",
   "rc3.fb.next": "Next step",
   "rc3.fb.rework": "Return for rework",
   "rc3.fb.noDefectHere": "This artifact had no issues. Approving was appropriate.",
@@ -843,6 +934,11 @@ export const en: LocaleBundle = {
   // UX-FT-001 / UX-RH-001: shared traceability labels + explicit N/A. Never omit a field.
   "rc3.trace.item": "Item",
   "rc3.trace.severity": "Severity",
+  // RC4 Final: separate the reviewer's judgment from the ground-truth severity.
+  "rc4.trace.reviewerSeverity": "Your judgment",
+  "rc4.trace.groundTruthSeverity": "Baseline severity",
+  "rc4.trace.severity.match": "matches baseline",
+  "rc4.trace.severity.mismatch": "differs from baseline",
   "rc3.trace.why": "Why it matters",
   "rc3.trace.origin": "Origin step",
   "rc3.trace.affected": "Affected later step",
@@ -899,6 +995,9 @@ export const en: LocaleBundle = {
   "rc3.release.title": "Release Approval",
   "rc3.release.desc": "Decide whether to release to production. This is a separate decision from completion approval.",
   "rc3.release.remainingRisk": "Remaining risk",
+  // RC Micro-Fix #1: present conflation as the user's own stance (a question), not a product assertion.
+  "rc3.release.conflate.prompt": "Your call: do you treat completion approval and release approval as the same decision?",
+  "rc3.release.conflate.option": "Treat them as the same decision (approving completion also counts as approving release)",
   "rc3.approve": "Approve",
   "rc3.approve-with-conditions": "Approve with conditions",
   "rc3.return": "Return",
@@ -1039,23 +1138,54 @@ export const en: LocaleBundle = {
   "rc3.revision.current": "Current revision",
   "rc3.trigger.requirement-changed": "Requirement changed",
   "rc3.trigger.scope-changed": "Scope changed",
-  "rc3.trigger.critical-finding": "Critical finding",
+  // RC Micro-Fix #4: severity-neutral wording — a return is driven by a reviewer's finding, not a
+  // fixed severity. Avoid the emphasis word "Critical" that contradicts a Medium finding. The
+  // finding's severity is owned solely by the Feedback reviewer/ground-truth severity fields.
+  "rc3.trigger.critical-finding": "Returned based on a reviewer finding",
   "rc3.trigger.downstream-mismatch": "Downstream mismatch",
   "rc3.trigger.approval-prerequisite-changed": "Approval prerequisite changed",
 
   "rc3.consequence.origin": "Origin step",
   "rc3.consequence.cause": "A miss in an earlier step surfaces here (this is not a new problem).",
+  // RC4 Integrity P1-3: improvement propagation is shown as resolved, not conflated with a surfaced issue.
+  "rc4.prop.improved.badge": "Resolved impact (from an upstream fix)",
+  "rc4.prop.improved.cause": "Because an earlier step was fixed, the adverse impact here is resolved (not a current issue).",
+  // STEP 7: how a propagated item affects this step's gate (human-readable; no internal enum).
+  "rc4.prop.gateImpact.label": "Impact on this step's gate",
+  "rc4.prop.gateImpact.upstream": "Should be resolved in the upstream step (it does not directly block this step's gate).",
+  "rc4.prop.gateImpact.observation": "Observation only (no action needed).",
 
   "rc3.completion.summary.title": "Completion Summary",
-  "rc3.completion.summary.evidence": "Evidence status",
-  "rc3.completion.summary.evidence.sufficient": "Sufficient",
-  "rc3.completion.summary.evidence.insufficient": "Insufficient",
+  "rc3.completion.summary.evidence": "Evidence artifact status",
+  "rc3.completion.summary.evidence.sufficient": "Complete",
+  "rc3.completion.summary.evidence.insufficient": "Incomplete",
   "rc3.completion.summary.evidence.not-reviewed": "Not reviewed",
   "rc3.completion.summary.unresolved": "Unresolved findings",
   "rc3.completion.summary.remainingRisk": "Remaining risk",
   "rc3.completion.summary.reworkCount": "Rework count",
   "rc3.completion.summary.completedSteps": "Completed steps",
   "rc3.completion.summary.note": "This supports the completion decision (separate from the release decision).",
+
+  // RC4 Integrity (STEP 4): Decision Readiness Summary (shared by Completion / Release / Result)
+  "rc4.readiness.title": "Release decision inputs",
+  "rc4.readiness.desc": "Use the following inputs to decide whether to release to production in this state.",
+  "rc4.readiness.completionDecision": "Completion decision",
+  "rc4.readiness.completionDecision.none": "Not decided",
+  "rc4.readiness.evidence": "Evidence status",
+  "rc4.readiness.unresolved": "Unresolved findings",
+  "rc4.readiness.highestSeverity": "Highest unresolved severity",
+  "rc4.readiness.highestSeverity.none": "None",
+  "rc4.readiness.residualRisk": "Residual risk (overall)",
+  "rc4.readiness.residualRisks.title": "Residual risk breakdown",
+  "rc4.readiness.residualRisks.none": "No residual risks.",
+  "rc4.readiness.origin": "Origin step",
+  "rc4.readiness.releaseImpact": "Release impact",
+  "rc4.readiness.releaseImpact.body": "Release is the final human gate. Here you decide whether to accept the residual risk. Reverting carries real cost.",
+  "rc4.readiness.conditional": "Completion was approved with conditions (unresolved conditions remain).",
+  "rc4.readiness.reviewedSteps": "Reviewed steps",
+  "rc4.reviewLabel.reviewed": "Reviewed",
+  "rc4.reviewLabel.passed": "Passed",
+  "rc4.reviewLabel.rework-required": "Rework required",
 
   "rc3.result.causal.title": "Causal Learning Summary (why & where to return)",
   "rc3.result.causal.what": "What happened",
@@ -1076,15 +1206,19 @@ export const en: LocaleBundle = {
   "rc3.why.remaining-risks": "Remaining risks were not managed.",
 
   "rc3.sample.goal": "Build an internal inquiry-management tool that handles personal information.",
-  "rc3.sample.context": "Users are internal. It integrates with some external SaaS and requires high availability.",
-  "rc3.sample.requirements": "Provide registration, search, assignment, and status management for inquiries.",
-  "rc3.sample.acceptanceCriteria": "Personal info is not sent externally / key operations are highly available.",
-  "rc3.sample.constraints": "Do not send personal information to external services.",
+  "rc3.sample.context":
+    "Users are internal. An inquiry flows through \"registration → first response by an assignee → second approval by a manager → close\". It integrates with some external SaaS for monitoring and notifications, and requires high availability.",
+  "rc3.sample.requirements":
+    "Provide registration, search, assignment, and status management for inquiries. The handling state is finalized by two-step approval: a first response (assignee) and a second approval (manager).",
+  "rc3.sample.acceptanceCriteria":
+    "The two-step approval flow (first response then second approval) can be verified / personal info is not sent externally / key operations are highly available.",
+  "rc3.sample.constraints":
+    "Do not send personal information (PII) to external services. External SaaS integration itself is not forbidden; only non-PII monitoring events and metadata may be sent.",
 };
 
 // RC4: archetype content の locale key を chrome バンドルへ合成する（ja/en 対称）。
 // data/logic 分離のため content 本文は rc4-content.ts に置き、ここで束ねる。
 export const chromeBundles: Readonly<Record<"ja" | "en", LocaleBundle>> = {
-  ja: { ...ja, ...rc4ContentJa },
-  en: { ...en, ...rc4ContentEn },
+  ja: { ...ja, ...rc4ContentJa, ...rc5ContentJa, ...rc6ContentJa },
+  en: { ...en, ...rc4ContentEn, ...rc5ContentEn, ...rc6ContentEn },
 };

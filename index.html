@@ -7,6 +7,12 @@
       best-effort meta CSP（GitHub Pages 等 header 制御不可時のフォールバック）。
       CSP の source of truth は CloudFront Response Headers Policy（infrastructure-specification）。
       no-network posture: application data/user input を外部送信しない（connect-src 'self'）。
+
+      RC6 記録（P3）: frame-ancestors は仕様上 HTTP レスポンスヘッダでのみ有効で、
+      <meta http-equiv> 経由では多くのブラウザが無視する。ここに残しているのは意図の記録であり、
+      実効的な clickjacking 防御は Preview/配信インフラ側（CloudFront Response Headers Policy /
+      GitHub Pages では別途）で frame-ancestors（または X-Frame-Options）ヘッダを設定する必要がある。
+      アプリ側コードだけでは完結しないため、RC6 ではこの制約を記録に留める（コード変更なし）。
     -->
     <meta
       http-equiv="Content-Security-Policy"

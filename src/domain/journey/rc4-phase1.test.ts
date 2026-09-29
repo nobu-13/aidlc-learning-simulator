@@ -209,11 +209,13 @@ describe("RC4 Phase 1 — defective != corrected", () => {
 });
 
 describe("RC4 Phase 1 — revision / content-state consistency", () => {
-  it("variantKey encodes slot + content state; artifactId encodes revision", () => {
+  it("variantKey encodes slot + content state; artifactId encodes artifactVersion", () => {
     const art = gen("event-driven-processing", HEAVY, "j3-design");
     const nfr = art.items.find((i) => i.itemId === "design-item-missing-nfr");
-    expect(nfr?.variantKey).toBe("design-item-missing-nfr::defective");
-    expect(art.artifactId).toContain("__r0");
+    // RC4 Final: variantKey は stage index を含む（multi-stage の Diff 突合のため）。
+    expect(nfr?.variantKey).toBe("design-item-missing-nfr::defective::s0");
+    // RC4 Phase 3: artifactId は artifactVersion を suffix に持つ（未指定時は revision へ fallback = v0）。
+    expect(art.artifactId).toContain("__v0");
     const baselineItem = art.items.find((i) => i.itemId === "design-item-fd-valid");
     expect(baselineItem?.variantKey).toBe("design-item-fd-valid::baseline");
     expect(baselineItem?.contentState).toBe("baseline");

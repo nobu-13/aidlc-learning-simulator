@@ -1,5 +1,6 @@
 // RC3 Journey UI 統合テスト — Guided / Simulation / Adoption の体験差、Completion != Release、
 // rework、locale 不変、mid-journey 開示の有無 を UI レベルで検証する。
+import { opaqueItemToken } from "../domain/semantic-id.ts";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
@@ -34,7 +35,7 @@ async function reviewAndSubmit(
   opts: { flag?: string[]; gate?: string },
 ): Promise<void> {
   for (const id of opts.flag ?? []) {
-    const cb = screen.queryByTestId(`review-item-${id}`);
+    const cb = screen.queryByTestId(`review-item-${opaqueItemToken(id)}`);
     if (cb !== null) await user.click(cb);
   }
   if (opts.gate !== undefined) {

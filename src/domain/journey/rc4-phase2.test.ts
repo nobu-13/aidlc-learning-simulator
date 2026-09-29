@@ -170,7 +170,8 @@ describe("RC4 Phase 2 — artifact body actually changes", () => {
     const a1 = buildArtifactForStep(input(p1), "j3-design");
     // revision が変わると artifactId が変わる = 旧 review は identity 不一致で reject される（再レビュー必須）。
     expect(a1.artifactId).not.toBe(a0.artifactId);
-    expect(a1.artifactId).toContain("__r1");
+    // RC4 Phase 3: artifactId は artifactVersion を suffix に持つ（local rework で artifactVersion +1）。
+    expect(a1.artifactId).toContain("__v1");
   });
 });
 

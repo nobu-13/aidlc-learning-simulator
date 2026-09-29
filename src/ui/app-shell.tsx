@@ -18,8 +18,13 @@ export function AppShell(props: {
 
   return (
     <div className="shell">
+      {/* P3 a11y: main へ飛べる skip link。 */}
+      <a className="skip-link" href="#main-content" data-testid="skip-link">
+        {t("a11y.skipToContent")}
+      </a>
       <header className="shell-header">
-        <div className="shell-nav">
+        {/* P3 a11y: 主ナビゲーションを nav landmark にする。 */}
+        <nav className="shell-nav" aria-label={t("a11y.primaryNav")}>
           <button
             className="shell-home"
             data-testid="nav-home"
@@ -41,7 +46,7 @@ export function AppShell(props: {
               ⌂ {t("nav.home")}
             </button>
           ) : null}
-        </div>
+        </nav>
         <div className="shell-title">
           <span className="shell-app-title">{t("app.title")}</span>
         </div>
@@ -75,7 +80,9 @@ export function AppShell(props: {
           </button>
         </div>
       ) : null}
-      <main className="shell-main">{children}</main>
+      <main className="shell-main" id="main-content" tabIndex={-1}>
+        {children}
+      </main>
     </div>
   );
 }

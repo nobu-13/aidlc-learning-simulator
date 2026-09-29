@@ -10,8 +10,11 @@ Description: >
 # - CloudFront reads S3 via OAC (SigV4). Bucket policy allows ONLY the CloudFront distribution
 #   service principal with aws:SourceArn = this distribution (confused-deputy protection).
 # - Response Headers Policy is the AWS-side source of truth for CSP + security headers.
-# - No custom error response that rewrites all 403/404 to index.html: static-asset 404s stay 404
-#   (MVP first choice per spec; SPA deep-link routing not used).
+# - SPA fallback (RC4 preview): CloudFront maps 403/404 -> /index.html with HTTP 200 so that a
+#   direct load / refresh on any path (e.g. /journey) serves the SPA shell instead of an error.
+#   With OAC + private S3, a missing key returns 403 (AccessDenied), so BOTH 403 and 404 are mapped.
+#   Tradeoff: a genuinely missing static asset also resolves to index.html(200) rather than a hard
+#   404. Acceptable for a Blind Product Audit preview of a single-page app.
 # - Deterministic app; no secrets in template. Rollback via S3 versioning + redeploy prior artifact.
 
 Parameters:
@@ -120,8 +123,17 @@ Resources:
           # AWS managed CachingOptimized policy id (stable, well-known).
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
           ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
-        # NOTE: no CustomErrorResponses that map 403/404 -> 200 index.html.
-        # Static-asset 404s remain 404 (per approved spec; no SPA deep-link rewrite in MVP).
+        # SPA fallback: serve /index.html (200) for 403/404 so deep-link/refresh on any path works.
+        # OAC + private S3 returns 403 for missing keys, so both 403 and 404 are mapped.
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 10
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 10
 
   # ---------- Bucket policy: allow ONLY this CloudFront distribution (OAC) ----------
   SiteBucketPolicy:

@@ -21,17 +21,24 @@ import type {
  * v1 → v2 → v3 は「不足フィールドを空で補う」additive migration（既存 scenario 進捗を失わない）。
  * RC2 の in-progress scenario は RC3 Journey へ無理に変換しない（journey は空で開始）。
  *
- * RC4 architecture note: Phase 1 では PERSISTENCE_SCHEMA_VERSION = 3 の additive 変更
- * （PersistedJourney.archetypeId を optional 追加）を許容している。
- * ただし RC4 では Artifact generation semantics 自体が変わるため、旧 RC3 Journey state を
- * 新 Engine で再開させると semantic consistency が保証できない可能性がある。
- * RC4 production release requires an explicit persistence compatibility decision.
- * （原則として Persistence v4 + RC3 state safe reset を採用する方向。Phase 1 では変更不要。）
+ * v4（RC4 Final）: PersistedJourney に artifactVersions / materializedSteps を追加（Persistence v4）。
+ * RC4 では localRevision と artifactVersion が別軸になり、propagation により
+ * revision != artifactVersion が起こり得る。これらは v3 以前には保存されておらず、
+ * completed/current/revisions からは正確に復元できない（heuristic migration 禁止）。
+ * したがって:
+ *  - v4 journey: artifactVersions / materializedSteps を exact restore。
+ *  - v1/v2/v3 の非 journey 進捗（scenario 等）: additive に受理（既存挙動を維持）。
+ *  - v1/v2/v3 に含まれる journey: safe reset（restore せず null）。journey が存在した場合は
+ *    recovered="incompatible" を通知して「新しい Journey として開始した」旨を UI が示せるようにする。
  */
-export const PERSISTENCE_SCHEMA_VERSION = 3;
+export const PERSISTENCE_SCHEMA_VERSION = 4;
 
-/** 後方互換で受理する旧バージョン（additive migration の対象）。 */
-const MIGRATABLE_VERSIONS: readonly number[] = [1, 2];
+/**
+ * 後方互換で受理する旧バージョン（非 journey 進捗の additive migration 対象）。
+ * これらの版に含まれる journey は RC4 と非互換なので safe reset する（下記 tryValidate 参照）。
+ * v3 を追加: v3 journey も artifactVersions/materializedSteps を持たないため safe reset の対象。
+ */
+const MIGRATABLE_VERSIONS: readonly number[] = [1, 2, 3];
 
 const STORAGE_KEY = "aidlc-learning-simulator/progress/v1";
 
@@ -74,6 +81,8 @@ export interface PersistedJourney {
     readonly remainingDefectIds?: readonly string[] | undefined;
     /** RC4 Phase 2 修正: additive。no-op rework 試行（revision を進めなかった）フラグ。 */
     readonly isNoOpAttempt?: boolean | undefined;
+    /** RC4 Final: additive。この Return で reviewer が書いた Review note（quote のみ）。 */
+    readonly reviewNote?: string | undefined;
   }[];
   /**
    * RC4 Phase 2: step id → 解決済み defect id 集合（additive）。
@@ -81,6 +90,25 @@ export interface PersistedJourney {
    * 未指定の旧データは空（= RC3 と同じ全未解決挙動）。
    */
   readonly resolvedDefectIds?: Readonly<Record<string, readonly string[]>> | undefined;
+  /**
+   * RC4 Final: step id → defectId → 到達済み resolution stageIndex（multi-stage の partial 保持）。
+   * additive（v4 内で後方互換・欠落時は空 = 全 defect stage 0 = 従来 binary 挙動）。
+   * resolvedDefectIds（terminal）と整合するように exact 保存する。
+   */
+  readonly defectStages?: Readonly<Record<string, Readonly<Record<string, number>>>> | undefined;
+  /**
+   * RC4 Persistence v4: step id → artifactVersion（Artifact content 全体の version）。
+   * localRevision（revisions）とは別軸。propagation content change でも増えるため exact 保存が必須。
+   * v4 で導入。v3 以前には存在しないため、旧 journey は safe reset される（heuristic 補完しない）。
+   */
+  readonly artifactVersions?: Readonly<Record<string, number>> | undefined;
+  /**
+   * RC4 Persistence v4: step id → materialize 済みか。
+   * 未 materialized の downstream は初回生成で artifactVersion 0、materialized は propagation で +1
+   * という semantic の判定に必要。completed/current からは正確に復元できないため exact 保存する。
+   * v4 で導入。v3 以前には存在しないため、旧 journey は safe reset される。
+   */
+  readonly materializedSteps?: Readonly<Record<string, boolean>> | undefined;
   readonly reviews: Readonly<
     Record<
       string,
@@ -94,6 +122,21 @@ export interface PersistedJourney {
   readonly completionDecision?: string | undefined;
   readonly releaseDecision?: string | undefined;
   readonly releaseConflated?: boolean | undefined;
+  /**
+   * RC5 P1-D: Conditional Approval（構造化条件）の永続化（additive・JSON 最小構造）。
+   * approve-with-conditions で記録した条件を reload / Resume 後も保持する。
+   */
+  readonly conditionalApprovals?:
+    | readonly {
+        readonly sourceStepId: string;
+        readonly findingIds: readonly string[];
+        readonly condition: string;
+        readonly requiredEvidence?: string | undefined;
+        readonly dueGate: string;
+        readonly status: string;
+        readonly highestSeverity?: string | undefined;
+      }[]
+    | undefined;
   /** Setup 中の下書き（F1・additive）。beginJourney 前の Simulation/Adoption 入力を保持。 */
   readonly draftUserAuthored?: Readonly<Record<string, string>> | undefined;
   readonly draftStructured?: Readonly<Record<string, string>> | undefined;
@@ -219,7 +262,9 @@ export class ProgressStore {
     if (validated === "incompatible") {
       return { progress: emptyProgress(defaultLocale), recovered: "incompatible" };
     }
-    return { progress: validated, recovered: null };
+    // 非 journey 進捗は受理しつつ、旧版の journey を RC4 非互換として safe reset した場合は
+    // recovered="incompatible" を通知する（scenario 進捗は失わない・journey だけ new clean）。
+    return { progress: validated.progress, recovered: validated.journeyWasReset ? "incompatible" : null };
   }
 
   /** 保存。書き込み失敗は PersistenceError（呼び出し側が扱う）。 */
@@ -242,7 +287,9 @@ export class ProgressStore {
    * v1（MIGRATABLE_VERSIONS）は「不足フィールドを空で補う」additive migration で受理する
    * （既存の scenario 進捗を失わないため。意味変換は伴わない）。
    */
-  private tryValidate(value: unknown): PersistedProgress | "corrupt" | "incompatible" {
+  private tryValidate(
+    value: unknown,
+  ): { progress: PersistedProgress; journeyWasReset: boolean } | "corrupt" | "incompatible" {
     if (typeof value !== "object" || value === null) return "corrupt";
     const v = value as Record<string, unknown>;
     if (typeof v.persistenceSchemaVersion !== "number") return "corrupt";
@@ -275,20 +322,37 @@ export class ProgressStore {
       : "guided";
     const workshopInputs = isStringRecord(v.workshopInputs) ? (v.workshopInputs as WorkshopInputs) : {};
     const practiceDrafts = isNestedStringRecord(v.practiceDrafts) ? (v.practiceDrafts as PracticeDrafts) : {};
-    // v3 journey は additive。形が不正なら null（RC2 state はそのまま維持し journey だけ空で開始）。
-    const journey = isValidJourney(v.journey) ? (v.journey as PersistedJourney) : null;
+
+    // Journey の版互換ポリシー（Persistence v4）:
+    //  - current（v4）: journey を additive 検証で受理（artifactVersions/materializedSteps を exact 保持）。
+    //  - migratable 旧版（v1/v2/v3）に journey が含まれる: RC4 非互換なので safe reset（null）。
+    //    heuristic migration（artifactVersions=revisions 等）は行わない。journey が存在したことだけ
+    //    journeyWasReset で通知する（UI が「新しい Journey として開始した」旨を出せる）。
+    let journey: PersistedJourney | null;
+    let journeyWasReset = false;
+    if (isCurrent) {
+      journey = isValidJourney(v.journey) ? (v.journey as PersistedJourney) : null;
+    } else {
+      // migratable 旧版: 非 journey 進捗は保持しつつ journey は捨てる。
+      journey = null;
+      // 旧版に「復元しようとしていた journey」があったかどうか（あったら通知する）。
+      journeyWasReset = v.journey !== null && v.journey !== undefined && typeof v.journey === "object";
+    }
 
     return {
-      persistenceSchemaVersion: PERSISTENCE_SCHEMA_VERSION,
-      locale: v.locale,
-      mode,
-      sessions: v.sessions as PersistedProgress["sessions"],
-      decisionRecords: v.decisionRecords as PersistedProgress["decisionRecords"],
-      completedScenarioIds: v.completedScenarioIds as readonly string[],
-      adoptionMemos: v.adoptionMemos as PersistedProgress["adoptionMemos"],
-      workshopInputs,
-      practiceDrafts,
-      journey,
+      progress: {
+        persistenceSchemaVersion: PERSISTENCE_SCHEMA_VERSION,
+        locale: v.locale,
+        mode,
+        sessions: v.sessions as PersistedProgress["sessions"],
+        decisionRecords: v.decisionRecords as PersistedProgress["decisionRecords"],
+        completedScenarioIds: v.completedScenarioIds as readonly string[],
+        adoptionMemos: v.adoptionMemos as PersistedProgress["adoptionMemos"],
+        workshopInputs,
+        practiceDrafts,
+        journey,
+      },
+      journeyWasReset,
     };
   }
 }
@@ -306,7 +370,15 @@ function isNestedStringRecord(value: unknown): boolean {
 }
 
 /**
- * PersistedJourney の防御的検証（v3・additive）。最小限の形チェックのみ。
+ * PersistedJourney の防御的検証（v4）。
+ *
+ * v4 では artifactVersions / materializedSteps を **必須**とする（RC4 Final Integrity）。
+ * これらは Artifact identity（__v{artifactVersion}）と materialization state の再現に必要で、
+ * 欠落を default（{}）補完すると propagation 由来の artifactVersion increment を復元できず
+ * 「同一 state」を保証できない。したがって:
+ *  - field が欠落（undefined）→ invalid → journey safe reset（heuristic 補完しない）。
+ *  - field が存在する空 record（{}）→ valid（new Journey の初期状態と同じ・exact restore）。
+ * missing field ≠ empty field を明確に区別する。
  * 不正なら呼び出し側が null にして「journey 未開始」として扱う（RC2 state は壊さない）。
  */
 function isValidJourney(value: unknown): boolean {
@@ -320,7 +392,16 @@ function isValidJourney(value: unknown): boolean {
   if (typeof j.reviews !== "object" || j.reviews === null) return false;
   if (!Array.isArray(j.completedStepIds)) return false;
   if (!Array.isArray(j.reworkHistory)) return false;
+  // v4 必須 field: 存在（object）を要求。missing（undefined）や配列/null は invalid。
+  // 空 record {} は valid（初期 Journey 状態と同じ）。
+  if (!isPlainRecord(j.artifactVersions)) return false;
+  if (!isPlainRecord(j.materializedSteps)) return false;
   return true;
+}
+
+/** value が「存在する plain object（配列/null でない）」か。空 record {} も true。 */
+function isPlainRecord(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** ブラウザ localStorage を StoragePort として包む（実行時 adapter）。 */

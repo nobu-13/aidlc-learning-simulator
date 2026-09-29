@@ -159,41 +159,39 @@ describe("Mode-invariant Ground Truth", () => {
   });
 });
 
-describe("Consequence propagation (Adoption)", () => {
-  it("missed defect with downstream manifestation appears in later artifact only in adoption", () => {
-    // J3 の security-violation を見逃す review を用意（HEAVY で有効）。
-    const defects = buildDefectSet(HEAVY_INPUT);
-    const j3Defect = defectsForStep(defects, "j3-design").find(
-      (d) => d.downstreamManifestation?.atStepId === "j4-implementation-traceability",
-    );
-    expect(j3Defect).toBeDefined();
+describe("Consequence propagation (all modes common — RC4 Phase 3)", () => {
+  it("missed upstream defect propagates to the direct downstream artifact in EVERY mode (Adoption-only semantic retired)", () => {
+    // J3 の defect（direct downstream = J4）を見逃す review を用意（HEAVY で有効）。
+    // RC4 Phase 3: propagation は学習 mode 固有の演出ではなく Artifact dependency の domain behavior。
+    // 旧 RC3 の「Adoption だけ伝播」semantic は廃止し、全 mode 共通で 1-hop 伝播することを検証する。
+    const modes = ["guided", "simulation", "adoption-review"] as const;
 
-    const adoptionBase: JourneyRunInput = {
-      profile: buildUserProfile("t", {}, HEAVY_INPUT),
-      mode: "adoption-review",
-      progress: initialProgress(),
-      reviews: {},
-    };
-    // J3 のすべての defect を見逃す review（artifactId は実 artifact から取得・FIX 3）。
-    const j3Artifact = buildArtifactForStep(adoptionBase, "j3-design");
-    const reviews: JourneyRunInput["reviews"] = {
-      "j3-design": {
-        artifactId: j3Artifact.artifactId,
-        journeyStepId: "j3-design",
-        findings: [],
-        gateDecision: "approve",
-      },
-    };
-    const adoption: JourneyRunInput = { ...adoptionBase, reviews };
-    const simulation: JourneyRunInput = { ...adoption, mode: "simulation" };
-
-    const j4Adoption = buildArtifactForStep(adoption, "j4-implementation-traceability");
-    const j4Simulation = buildArtifactForStep(simulation, "j4-implementation-traceability");
-
-    const hasConsequence = (a: typeof j4Adoption): boolean =>
+    const hasConsequence = (a: ReturnType<typeof buildArtifactForStep>): boolean =>
       a.items.some((i) => i.itemId.startsWith("consequence-"));
-    expect(hasConsequence(j4Adoption)).toBe(true); // 伝播する
-    expect(hasConsequence(j4Simulation)).toBe(false); // 伝播しない
+
+    for (const mode of modes) {
+      const base: JourneyRunInput = {
+        profile: buildUserProfile("t", {}, HEAVY_INPUT),
+        mode,
+        progress: initialProgress(),
+        reviews: {},
+      };
+      // J3 のすべての defect を見逃す review（artifactId は実 artifact から取得・FIX 3）。
+      const j3Artifact = buildArtifactForStep(base, "j3-design");
+      const input: JourneyRunInput = {
+        ...base,
+        reviews: {
+          "j3-design": {
+            artifactId: j3Artifact.artifactId,
+            journeyStepId: "j3-design",
+            findings: [],
+            gateDecision: "approve",
+          },
+        },
+      };
+      const j4 = buildArtifactForStep(input, "j4-implementation-traceability");
+      expect(hasConsequence(j4)).toBe(true); // 全 mode で direct downstream(J4) へ伝播する。
+    }
   });
 
   it("journey result records consequences from missed findings", () => {

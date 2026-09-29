@@ -1,5 +1,6 @@
 // RC3 Final Stabilization Patch — deterministic 回帰テスト（F1–F7）。
 // 条件付き PASS を避け、対象状態を必ず発生させて hard assert する。
+import { opaqueItemToken } from "../domain/semantic-id.ts";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../app/app.tsx";
@@ -25,7 +26,7 @@ function makeApp(langs: string[] = ["en"], storage: StoragePort = memoryStorage(
 }
 async function submit(user: ReturnType<typeof userEvent.setup>, gate = "approve", flag: string[] = []): Promise<void> {
   for (const id of flag) {
-    const cb = screen.queryByTestId(`review-item-${id}`);
+    const cb = screen.queryByTestId(`review-item-${opaqueItemToken(id)}`);
     if (cb !== null) await user.click(cb);
   }
   await user.selectOptions(screen.getByTestId("review-gate"), gate);
@@ -187,9 +188,11 @@ describe("F3/F4 learning history", () => {
     const storage = memoryStorage();
     const { unmount } = render(<App application={makeApp(["en"], storage)} />);
     await user.click(screen.getByTestId("journey-start-guided"));
-    // distractor（罠）を誤指摘して false positive を作る。
-    const distractor = screen.queryAllByTestId(/^review-item-.*distractor/)[0];
-    if (distractor !== undefined) await user.click(distractor);
+    // distractor（罠・有効項目）を誤指摘して false positive を作る。
+    // RC6 P2: DOM から answer semantic が消えたため、slotId の opaque token で選ぶ
+    // （canonical internal-api-workflow の J1 distractor slot = req-item-distractor）。
+    const distractor = screen.queryByTestId(`review-item-${opaqueItemToken("req-item-distractor")}`);
+    if (distractor !== null) await user.click(distractor);
     await submit(user, "approve");
     await user.click(screen.getByTestId("feedback-next"));
     unmount();
@@ -249,10 +252,12 @@ describe("F6 simulation must-fix deterministic", () => {
     expect(screen.getByTestId("feedback-must-fix")).toBeInTheDocument();
     // Next は出ない（hard）。
     expect(screen.queryByTestId("feedback-next")).toBeNull();
-    // rework して high を正しく指摘 → must-fix 解消。
+    // rework して high を正しく指摘 → must-fix（critical miss blocker）解消。
+    // RC4 Integrity P1-2: 「差し戻し」判断のままでは次工程へ進めない（Return は rework を強制）。
+    // ここでは blocker が解消されたうえで Approve すれば次工程へ進めることを確認する。
     await user.click(screen.getByTestId("feedback-rework"));
     await flagAllHigh(user);
-    await submit(user, "return-for-rework");
+    await submit(user, "approve");
     expect(screen.queryByTestId("feedback-must-fix")).toBeNull();
     expect(screen.getByTestId("feedback-next")).toBeInTheDocument();
   });

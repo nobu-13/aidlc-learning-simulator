@@ -1,6 +1,7 @@
 // RC3.1 Stable Close Patch — deterministic UI tests.
 // UX-FT-001 / UX-RH-001 / UX-NAV-001 / UX-MOB-001 を hard assert する。
 // Ground Truth / TP-FP-FN-TN semantics は検証しない（表示正規化のみ対象）。
+import { opaqueItemToken } from "../domain/semantic-id.ts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render, screen, cleanup, within } from "@testing-library/react";
@@ -28,7 +29,7 @@ function makeApp(langs: string[] = ["en"], storage: StoragePort = memoryStorage(
 }
 async function submitGate(user: ReturnType<typeof userEvent.setup>, gate = "approve", flag: string[] = []): Promise<void> {
   for (const id of flag) {
-    const cb = screen.queryByTestId(`review-item-${id}`);
+    const cb = screen.queryByTestId(`review-item-${opaqueItemToken(id)}`);
     if (cb !== null) await user.click(cb);
   }
   await user.selectOptions(screen.getByTestId("review-gate"), gate);

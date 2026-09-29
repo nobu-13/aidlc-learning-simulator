@@ -8,6 +8,7 @@
 //  - Adoption も同一 Rework engine（state transition が効く）
 //
 // 決定的・no-network（memory storage）。
+import { opaqueItemToken } from "../domain/semantic-id.ts";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../app/app.tsx";
@@ -38,7 +39,7 @@ async function submitGate(
   flag: string[] = [],
 ): Promise<void> {
   for (const id of flag) {
-    const cb = screen.queryByTestId(`review-item-${id}`);
+    const cb = screen.queryByTestId(`review-item-${opaqueItemToken(id)}`);
     if (cb !== null) await user.click(cb);
   }
   await user.selectOptions(screen.getByTestId("review-gate"), gate);
@@ -57,14 +58,25 @@ async function guidedToJ3(user: ReturnType<typeof userEvent.setup>): Promise<voi
 
 afterEach(() => cleanup());
 
-// Guided canonical profile は internal-api-workflow。J3 の missing-nfr:
-//   defective 本文: rc4.iaw.j3.missingNfr.defective ("...no design for redundancy, retries, or recovery objectives.")
-//   corrected 本文: rc4.iaw.j3.missingNfr.corrected ("...Multi-AZ, retries, and recovery objectives (RTO/RPO)...")
-const NFR_DEFECTIVE_SNIPPET = "no design for redundancy";
-const NFR_CORRECTED_SNIPPET = "Multi-AZ, retries, and recovery objectives";
+// Guided canonical profile は internal-api-workflow。J3 の missing-nfr は RC4 Final で multi-stage:
+//   stage 0 defective : "...keep the business running as much as possible during incidents..."
+//   stage 1 partial   : "...99.9% uptime with a multi-AZ redundant deployment..."
+//   stage 2 corrected : "...RTO 30 min and RPO 5 min...included in the acceptance criteria."
+// 1 回目の Return は partial（改善したが acceptance 未達）、2 回目で resolved。
+const NFR_DEFECTIVE_SNIPPET = "neither an architecture \\(redundancy, failover\\) to achieve them";
+const NFR_PARTIAL_SNIPPET = "the design adds 99.9% uptime, multi-AZ redundancy";
+const NFR_CORRECTED_SNIPPET = "RTO 30 min, RPO 5 min";
 
-describe("RC4 Phase 2 UI — Guided actual rework", () => {
-  it("12. Return on J3 missing-nfr revises the artifact body from defective to corrected", async () => {
+/** feedback view の rework ボタン（optional or must-fix）を押す。 */
+async function clickRework(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  const reworkBtn =
+    screen.queryByTestId("feedback-rework-optional") ?? screen.queryByTestId("feedback-rework");
+  expect(reworkBtn).not.toBeNull();
+  await user.click(reworkBtn!);
+}
+
+describe("RC4 Phase 2 UI — Guided iterative rework (multi-stage)", () => {
+  it("12. Return on J3 missing-nfr: v0 defective -> v1 partial -> v2 resolved", async () => {
     const user = userEvent.setup();
     render(<App application={makeApp(memoryStorage())} />);
     await guidedToJ3(user);
@@ -73,21 +85,28 @@ describe("RC4 Phase 2 UI — Guided actual rework", () => {
     expect(screen.getByText(new RegExp(NFR_DEFECTIVE_SNIPPET))).toBeInTheDocument();
     expect(screen.queryByText(new RegExp(NFR_CORRECTED_SNIPPET))).toBeNull();
 
-    // missing-nfr を指摘して Return（Guided は feedback で optional rework ボタン）。
+    // 1 回目 Return: partial へ前進（revision 1）。
     await submitGate(user, "return-for-rework", ["design-item-missing-nfr"]);
-    // feedback view の rework ボタン（optional or must-fix）を押す。
-    const reworkBtn =
-      screen.queryByTestId("feedback-rework-optional") ?? screen.queryByTestId("feedback-rework");
-    expect(reworkBtn).not.toBeNull();
-    await user.click(reworkBtn!);
-
-    // J3 rev1: revision banner と Agent revised guidance、corrected 本文。
+    await clickRework(user);
     expect(screen.getByTestId("revision-banner")).toBeInTheDocument();
     expect(screen.getByTestId("revision-label")).toHaveTextContent("1");
     expect(screen.getByTestId("revision-agent-revised")).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(NFR_CORRECTED_SNIPPET))).toBeInTheDocument();
-    // defective 本文はもう出ない（同じ slot が corrected へ差し替わった）。
-    expect(screen.queryByText(new RegExp(NFR_DEFECTIVE_SNIPPET))).toBeNull();
+    // partial 本文が artifact 本体に出る（まだ resolved ではない）。
+    expect(screen.getAllByText(new RegExp(NFR_PARTIAL_SNIPPET)).length).toBeGreaterThanOrEqual(1);
+    // Local Rework Diff card は Before(defective) / After(partial) を出す。
+    const localDiff1 = screen.getByTestId("local-rework-diff");
+    expect(localDiff1.textContent).toMatch(new RegExp(NFR_DEFECTIVE_SNIPPET));
+    expect(localDiff1.textContent).toMatch(new RegExp(NFR_PARTIAL_SNIPPET));
+
+    // 2 回目 Return: resolved へ前進（revision 2）。
+    await submitGate(user, "return-for-rework", ["design-item-missing-nfr"]);
+    await clickRework(user);
+    expect(screen.getByTestId("revision-label")).toHaveTextContent("2");
+    expect(screen.getAllByText(new RegExp(NFR_CORRECTED_SNIPPET)).length).toBeGreaterThanOrEqual(1);
+    // Diff card は Before(partial) / After(corrected)。
+    const localDiff2 = screen.getByTestId("local-rework-diff");
+    expect(localDiff2.textContent).toMatch(new RegExp(NFR_PARTIAL_SNIPPET));
+    expect(localDiff2.textContent).toMatch(new RegExp(NFR_CORRECTED_SNIPPET));
   });
 });
 
@@ -98,10 +117,9 @@ describe("RC4 Phase 2 UI — persistence across reload & resume", () => {
     const { unmount } = render(<App application={makeApp(storage)} />);
     await guidedToJ3(user);
     await submitGate(user, "return-for-rework", ["design-item-missing-nfr"]);
-    const reworkBtn =
-      screen.queryByTestId("feedback-rework-optional") ?? screen.queryByTestId("feedback-rework");
-    await user.click(reworkBtn!);
-    expect(screen.getByText(new RegExp(NFR_CORRECTED_SNIPPET))).toBeInTheDocument();
+    await clickRework(user);
+    // 1 回目 Return = partial。
+    expect(screen.getAllByText(new RegExp(NFR_PARTIAL_SNIPPET)).length).toBeGreaterThanOrEqual(1);
 
     // reload（同じ storage で再 mount）。
     unmount();
@@ -111,9 +129,9 @@ describe("RC4 Phase 2 UI — persistence across reload & resume", () => {
     const resume = await screen.findByTestId("journey-resume");
     await user.click(resume);
 
-    // corrected 本文が維持され、defective へ戻らない。
-    expect(screen.getByText(new RegExp(NFR_CORRECTED_SNIPPET))).toBeInTheDocument();
-    expect(screen.queryByText(new RegExp(NFR_DEFECTIVE_SNIPPET))).toBeNull();
+    // partial 本文（中間 stage）が維持され、revision も維持される。
+    // （defective 本文は Local Rework Diff card の Before として残るため artifact 本体のみ確認）。
+    expect(screen.getAllByText(new RegExp(NFR_PARTIAL_SNIPPET)).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByTestId("revision-label")).toHaveTextContent("1");
   });
 
@@ -123,17 +141,15 @@ describe("RC4 Phase 2 UI — persistence across reload & resume", () => {
     render(<App application={makeApp(storage)} />);
     await guidedToJ3(user);
     await submitGate(user, "return-for-rework", ["design-item-missing-nfr"]);
-    const reworkBtn =
-      screen.queryByTestId("feedback-rework-optional") ?? screen.queryByTestId("feedback-rework");
-    await user.click(reworkBtn!);
-    expect(screen.getByText(new RegExp(NFR_CORRECTED_SNIPPET))).toBeInTheDocument();
+    await clickRework(user);
+    expect(screen.getAllByText(new RegExp(NFR_PARTIAL_SNIPPET)).length).toBeGreaterThanOrEqual(1);
 
     // Home へ戻る（journey は破棄しない）→ Resume。
     await user.click(screen.getByTestId("journey-nav-home"));
     const resume = await screen.findByTestId("journey-resume");
     await user.click(resume);
 
-    expect(screen.getByText(new RegExp(NFR_CORRECTED_SNIPPET))).toBeInTheDocument();
+    expect(screen.getAllByText(new RegExp(NFR_PARTIAL_SNIPPET)).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByTestId("revision-label")).toHaveTextContent("1");
   });
 });
@@ -168,13 +184,11 @@ describe("RC4 Phase 2 UI — Simulation mandatory rework", () => {
     // 今度は missing-nfr を正しく特定して Return for Rework。
     await submitGate(user, "return-for-rework", ["design-item-missing-nfr"]);
     // Return 判断 + caught>0 なので rework 導線が出る。
-    const reworkBtn =
-      screen.queryByTestId("feedback-rework-optional") ?? screen.queryByTestId("feedback-rework");
-    expect(reworkBtn).not.toBeNull();
-    await user.click(reworkBtn!);
-    // ここで初めて revision +1・corrected 本文。
+    await clickRework(user);
+    // ここで初めて revision +1・partial 本文（multi-stage の 1 段階目）。
     expect(screen.getByTestId("revision-label")).toHaveTextContent("1");
-    expect(screen.getByText(new RegExp(NFR_CORRECTED_SNIPPET))).toBeInTheDocument();
+    // partial 本文は artifact 本体 + Local Rework Diff card（after）に現れるため複数一致。
+    expect(screen.getAllByText(new RegExp(NFR_PARTIAL_SNIPPET)).length).toBeGreaterThanOrEqual(1);
   });
 });
 

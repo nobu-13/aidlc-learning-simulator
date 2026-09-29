@@ -1,7 +1,7 @@
 // App root — orchestrator を組み立て、RC3 Journey（Primary）と RC2 Training Gym（Focus/Practice）を
 // routing する。RC3 Journey を Primary Learning Experience とし（Human Decision 4）、RC2 core-e2e は
 // 3 Mode の primary flow としては露出しない（Gym 内で Focus/Practice として再利用）。
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createApplication, type Application } from "./application-orchestrator.ts";
 import { browserStorage } from "../data/progress-store.ts";
 import { scenarioModules } from "../scenarios/index.ts";
@@ -58,6 +58,14 @@ export function App(props: { application?: Application; initialSurface?: "journe
   const journey = useJourneyState(application);
   const resolver = application.resolverFor(app.state.locale);
   const t = resolver.t;
+
+  // RC5 P2-C: document.documentElement.lang を現在の locale と同期する。
+  // 言語切替（ja↔en）で <html lang> も追従し、支援技術・ブラウザに正しい言語を伝える。
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = app.state.locale;
+    }
+  }, [app.state.locale]);
 
   if (surface === "journey") {
     return (
@@ -157,8 +165,13 @@ function JourneyShell(props: {
   const backKind = journey.backKind;
   return (
     <div className="shell">
+      {/* P3 a11y: main へ飛べる skip link（キーボード/支援技術で nav を飛ばせる）。 */}
+      <a className="skip-link" href="#main-content" data-testid="skip-link">
+        {t("a11y.skipToContent")}
+      </a>
       <header className="shell-header">
-        <div className="shell-nav">
+        {/* P3 a11y: 主ナビゲーションを nav landmark にする（aria-label 付き）。 */}
+        <nav className="shell-nav" aria-label={t("a11y.primaryNav")}>
           <button
             className="shell-home"
             data-testid="journey-nav-home"
@@ -174,7 +187,7 @@ function JourneyShell(props: {
               ← {t("rc3.nav.back")}
             </button>
           ) : null}
-        </div>
+        </nav>
         <div className="shell-title">
           <span className="shell-app-title">{t("app.title")}</span>
         </div>
@@ -182,7 +195,28 @@ function JourneyShell(props: {
           <LangSwitcher app={app} t={t} />
         </div>
       </header>
-      <main className="shell-main">{children}</main>
+      {/* RC4 Persistence v4: 旧版 journey を safe reset したときの human-readable notice。
+          AppShell と同じ recovered チャネル / dismiss を再利用する（新 framework は作らない）。
+          internal schema version は露出しない。
+          P3: restore 通知は Home でのみ出す。新しい Journey を開始（setup 以降）したら消す
+          （進行中の画面に古い復元通知が残らないようにする）。 */}
+      {app.state.recovered != null && journey.state.view === "journey-home" ? (
+        <div className="banner" role="status" data-testid="journey-recovered-banner">
+          <span>
+            {app.state.recovered === "restored"
+              ? t("resume.banner")
+              : app.state.recovered === "corrupt"
+                ? t("persist.recovered.corrupt")
+                : t("persist.recovered.incompatible")}
+          </span>
+          <button data-testid="journey-dismiss-recovered" onClick={() => app.dismissRecovered()}>
+            ✕
+          </button>
+        </div>
+      ) : null}
+      <main className="shell-main" id="main-content" tabIndex={-1}>
+        {children}
+      </main>
     </div>
   );
 }

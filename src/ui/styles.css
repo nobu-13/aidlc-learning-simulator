@@ -659,17 +659,27 @@ input[type="text"] {
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
 }
-.review-item > label {
+/* RC5 P1-B: checkbox の input は label の兄弟（.review-item-head 内）。 */
+.review-item-head {
   display: flex;
   gap: 0.5rem;
   align-items: flex-start;
+}
+.review-item-head > label,
+.checkbox-row > label {
   cursor: pointer;
+}
+.checkbox-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 .review-item input[type="checkbox"] {
   min-width: 20px;
   min-height: 20px;
   margin-top: 0.15rem;
 }
+/* RC5 P1-B: severity は fieldset（radiogroup）。fieldset 既定枠を消し、独立グループとして配置。 */
 .severity-picker {
   display: flex;
   flex-wrap: wrap;
@@ -677,6 +687,15 @@ input[type="text"] {
   align-items: center;
   margin-top: 0.5rem;
   padding-left: 1.7rem;
+  border: 0;
+  margin-inline: 0;
+  padding-block: 0;
+  min-inline-size: auto;
+}
+.severity-picker > legend {
+  float: none;
+  padding: 0;
+  margin-right: 0.3rem;
 }
 .severity-picker .chip {
   display: inline-flex;
@@ -686,6 +705,10 @@ input[type="text"] {
   border: 1px solid var(--border);
   border-radius: 999px;
   min-height: 32px;
+}
+.severity-picker .chip input[type="radio"] {
+  min-width: 18px;
+  min-height: 18px;
 }
 .gate-quality {
   border-radius: 8px;
@@ -704,6 +727,51 @@ input[type="text"] {
 .must-fix {
   border: 2px solid var(--neg);
   background: var(--neg-weak);
+}
+/* RC5 P1-C: no-op Return の明示拒否通知。 */
+.rework-rejected {
+  border: 2px solid var(--warn);
+  background: var(--warn-weak);
+}
+/* RC5 P1-D: Conditional Approval フォームと未解決条件カード。 */
+.conditional-form .field {
+  margin-bottom: 0.6rem;
+}
+.open-conditions {
+  border: 1px solid var(--warn);
+  background: var(--warn-weak);
+}
+.open-conditions .cond-high-risk {
+  color: var(--neg);
+  font-weight: 600;
+  margin-top: 0.2rem;
+}
+.open-conditions .cond-gate-impact {
+  margin-top: 0.2rem;
+}
+/* RC5 P2-F: mode identity badge。 */
+.mode-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.3rem 0 0.6rem;
+}
+.mode-identity .mode-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent-weak);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+/* RC5 P2-E: Main Journey タグ。 */
+.main-journey-tag {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
 }
 .feedback-actions,
 .approval-actions,
@@ -876,4 +944,144 @@ input[type="text"] {
 }
 .gym-secondary h2 {
   font-size: var(--fs-3);
+}
+
+/* ===== RC4 Phase 3: Diff / Propagation ===== */
+.diff-card {
+  border-left: 4px solid var(--accent);
+}
+.diff-card.diff-propagation {
+  border-left-color: var(--warn);
+  background: var(--warn-weak);
+}
+.propagation-meta {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.diff-changes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.diff-change {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+}
+/* changeType は色だけでなくテキストバッジで示す（a11y: 色に依存しない）。 */
+.diff-badge {
+  display: inline-block;
+  font-size: 0.75em;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  margin-right: 0.4rem;
+  border: 1px solid var(--border-strong);
+}
+.diff-badge-added {
+  color: var(--pos);
+  border-color: var(--pos);
+  background: var(--pos-weak);
+}
+.diff-badge-removed {
+  color: var(--neg);
+  border-color: var(--neg);
+}
+.diff-badge-changed {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+.diff-before {
+  color: var(--neg);
+}
+.diff-after {
+  color: var(--pos);
+}
+.diff-reason {
+  margin-top: 0.2rem;
+}
+
+/* ===== RC4 Final — partial / resolved resolution state ===== */
+.partial-badge,
+.resolved-badge {
+  display: inline-block;
+  font-size: 0.75em;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+.partial-badge {
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  background: transparent;
+}
+.resolved-badge {
+  color: var(--ok, #1a7f37);
+  border: 1px solid var(--ok, #1a7f37);
+  background: transparent;
+}
+.partial-detail {
+  margin: 0.3rem 0 0.2rem 1.7rem;
+  padding: 0.4rem 0.7rem;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-weak, rgba(200, 140, 0, 0.08));
+  border-radius: 0 6px 6px 0;
+}
+.partial-detail p {
+  margin: 0.2rem 0;
+  font-size: 0.9em;
+}
+
+/* ===== RC4 Final — mode cards & adoption output ===== */
+.mode-goal {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--accent);
+}
+.mode-output {
+  display: block;
+  font-size: 0.8em;
+}
+.adoption-output h3 {
+  margin: 0.9rem 0 0.3rem;
+}
+.adoption-resp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+.adoption-resp > div {
+  flex: 1 1 12rem;
+}
+
+/* P3 a11y: skip link。通常は画面外へ隠し、キーボード focus で可視化する。 */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: var(--sp-2, 8px) var(--sp-3, 12px);
+  background: #000;
+  color: #fff;
+  border-radius: 0 0 4px 0;
+}
+.skip-link:focus {
+  left: 0;
+}
+/* P3 a11y: skip link のジャンプ先 main は focus outline を出さない（tabIndex=-1 のプログラム的 focus）。 */
+.shell-main:focus {
+  outline: none;
 }

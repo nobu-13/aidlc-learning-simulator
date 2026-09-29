@@ -25,8 +25,23 @@ export interface FeedbackItemViewModel {
   readonly itemTitleKey: string;
   /** Artifact item の本文 locale key。 */
   readonly itemBodyKey: string;
-  /** defect のとき severity（caught/missed）。false のときは undefined。 */
+  /** defect のとき severity（caught/missed）= 基準上（Ground Truth）の severity。false のときは undefined。 */
   readonly severity?: Severity | undefined;
+  /**
+   * RC4 Final: Ground Truth（基準）上の severity（= severity と同じ）。
+   * severity と分離した明示 field。UI で「基準上の severity」を出すために使う。
+   */
+  readonly groundTruthSeverity?: Severity | undefined;
+  /**
+   * RC4 Final: ユーザーが選択した severity（reviewerSeverity）。caught のときのみ（指摘した項目）。
+   * これを Ground Truth と混同しない（Blind Audit: High 選択が Medium に上書きされて見える問題の解消）。
+   */
+  readonly reviewerSeverity?: Severity | undefined;
+  /**
+   * RC4 Final: reviewerSeverity が groundTruthSeverity と一致したか（caught のときのみ）。
+   * UI で「あなたの判定は基準と一致/相違」を示す。
+   */
+  readonly severityMatches?: boolean | undefined;
   /** なぜ重要か（defect rationale）。 */
   readonly whyItMattersKey?: string | undefined;
   /** この問題の由来工程（defect の journeyStepId）。 */
@@ -78,6 +93,10 @@ function toViewModel(
     itemTitleKey: item?.labelKey ?? "rc3.fb.unknownItem.title",
     itemBodyKey: item?.bodyKey ?? "rc3.fb.unknownItem.body",
     ...(outcome.expectedSeverity !== undefined ? { severity: outcome.expectedSeverity } : {}),
+    // RC4 Final: Ground Truth severity と reviewer severity を明示分離（混同させない）。
+    ...(outcome.expectedSeverity !== undefined ? { groundTruthSeverity: outcome.expectedSeverity } : {}),
+    ...(outcome.userSeverity !== undefined ? { reviewerSeverity: outcome.userSeverity } : {}),
+    ...(outcome.severityCorrect !== undefined ? { severityMatches: outcome.severityCorrect } : {}),
     ...(defect?.rationaleKey !== undefined ? { whyItMattersKey: defect.rationaleKey } : {}),
     ...(defect?.journeyStepId !== undefined ? { originStepId: defect.journeyStepId } : {}),
     ...(defect?.downstreamManifestation?.atStepId !== undefined

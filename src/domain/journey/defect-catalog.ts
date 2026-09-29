@@ -74,6 +74,9 @@ export const BASE_DEFECT_RULES: readonly DefectRule[] = [
     activateWhen: (i) => i.externalDependency !== "none",
   },
   // J3 missing NFR: availability が high/critical なのに NFR が欠落。
+  // RC4 Final: Blind Audit で「iterative rework が反復しない」と指摘された finding。
+  // ここを multi-stage resolution にする（unresolved → partial → resolved）。
+  // Ground Truth identity / severity / consequence は不変。解決経路（resolutionStages）のみ additive。
   {
     definition: {
       defectId: "d-j3-missing-nfr",
@@ -88,6 +91,14 @@ export const BASE_DEFECT_RULES: readonly DefectRule[] = [
         manifestItemKey: "rc3.consequence.j3.toRelease",
         addsRiskDimensionIds: ["remaining-risks"],
       },
+      // stage 0: 未解決（数値目標なし）／ stage 1: partial（項目は追加したが SLO/検証条件が不足）／
+      // stage 2: resolved（測定可能な目標＋検証条件＋受け入れ閾値）。
+      // 本文 key は archetype 非依存にするためここに書かない（content template の slot.stages が持つ）。
+      resolutionStages: [
+        { stageIndex: 0, state: "unresolved", isTerminal: false },
+        { stageIndex: 1, state: "partial", isTerminal: false },
+        { stageIndex: 2, state: "resolved", isTerminal: true },
+      ],
     },
     activateWhen: (i) => i.availability === "high" || i.availability === "critical",
   },

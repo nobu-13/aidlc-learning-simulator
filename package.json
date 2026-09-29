@@ -1,6 +1,6 @@
 {
   "name": "aidlc-learning-simulator",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "AI-DLC を体験学習する教育用 Simulator (static React + TypeScript + Vite SPA)",

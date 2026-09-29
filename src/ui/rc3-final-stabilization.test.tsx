@@ -1,4 +1,5 @@
 // RC3 Final Stabilization — UI 回帰テスト（H1-H5 / N1-N10）。
+import { opaqueItemToken } from "../domain/semantic-id.ts";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../app/app.tsx";
@@ -24,7 +25,7 @@ function makeApp(langs: string[] = ["en"], storage: StoragePort = memoryStorage(
 }
 async function submit(user: ReturnType<typeof userEvent.setup>, opts: { flag?: string[]; gate?: string } = {}): Promise<void> {
   for (const id of opts.flag ?? []) {
-    const cb = screen.queryByTestId(`review-item-${id}`);
+    const cb = screen.queryByTestId(`review-item-${opaqueItemToken(id)}`);
     if (cb !== null) await user.click(cb);
   }
   if (opts.gate !== undefined) await user.selectOptions(screen.getByTestId("review-gate"), opts.gate);
@@ -154,9 +155,17 @@ describe("P1-5/P1-6 learning history + result", () => {
     if (rework !== null) {
       await user.click(rework);
       await flagAll(user);
+      // RC4 Integrity P1-2: Return は rework を強制する。Return を選んだら next は出ず、
+      // feedback-rework で同一工程の再レビューへ戻る。その後 Approve で先へ進む。
       await submit(user, { gate: "return-for-rework" });
-      const n = screen.queryByTestId("feedback-next");
-      if (n !== null) await user.click(n);
+      const rw = screen.queryByTestId("feedback-rework");
+      if (rw !== null) await user.click(rw);
+      // 再レビューで approve して先へ進む。
+      if (screen.queryByTestId("review-submit") !== null) {
+        await submit(user, { gate: "approve" });
+        const n = screen.queryByTestId("feedback-next");
+        if (n !== null) await user.click(n);
+      }
     }
     // 残りを approve で完走。
     for (let i = 0; i < 6; i++) {

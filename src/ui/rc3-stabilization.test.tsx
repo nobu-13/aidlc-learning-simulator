@@ -1,5 +1,6 @@
 // RC3 Stabilization 回帰テスト（UI 層）— P1-1 leakage / P1-2 persistence-resume /
 // P1-4 navigation / P2-1 user text / P2-2 revision / P2-3 consequence / P2-4 completion / P2-5 result。
+import { opaqueItemToken } from "../domain/semantic-id.ts";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../app/app.tsx";
@@ -30,7 +31,7 @@ async function submitReview(
   opts: { flag?: string[]; gate?: string } = {},
 ): Promise<void> {
   for (const id of opts.flag ?? []) {
-    const cb = screen.queryByTestId(`review-item-${id}`);
+    const cb = screen.queryByTestId(`review-item-${opaqueItemToken(id)}`);
     if (cb !== null) await user.click(cb);
   }
   if (opts.gate !== undefined) await user.selectOptions(screen.getByTestId("review-gate"), opts.gate);

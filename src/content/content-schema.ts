@@ -60,6 +60,25 @@ const slotSchema = z
     correctedBodyKey: localeKey.optional(),
     /** defective→corrected になった際の変更サマリ locale key（Diff 表示用・任意）。 */
     changeSummaryKey: localeKey.optional(),
+    /**
+     * RC4 Final: data-driven multi-stage resolution の per-archetype 本文。
+     * multi-stage defect（defect-catalog が resolutionStages を宣言）のみ持つ。
+     * stageIndex は defect-catalog の resolutionStages と対応（0 起点・昇順）。
+     * stage 本文をここに置くことで archetype 固有の題材を保ちつつ domain（catalog）を非依存に保つ。
+     */
+    stages: z
+      .array(
+        z
+          .object({
+            stageIndex: z.number().int().min(0),
+            bodyKey: localeKey,
+            changeSummaryKey: localeKey.optional(),
+            remainingIssueKey: localeKey.optional(),
+            whyInsufficientKey: localeKey.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();
 

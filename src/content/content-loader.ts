@@ -107,6 +107,26 @@ export function validateArchetypeContent(source: RawArchetypeSource): ValidatedA
             ref,
           );
         }
+        // RC4 Final: defect が無い slot が multi-stage 本文を持つのも矛盾。
+        if (slot.stages !== undefined) {
+          throw new ScenarioValidationError(
+            `slot ${slot.slotId} は defectId が無いのに multi-stage 本文（stages）を持っています`,
+            ref,
+          );
+        }
+      }
+      // RC4 Final: stages を持つなら stageIndex は一意・0 起点昇順であること（防御的）。
+      if (slot.stages !== undefined) {
+        const seenIdx = new Set<number>();
+        for (const st of slot.stages) {
+          if (seenIdx.has(st.stageIndex)) {
+            throw new ScenarioValidationError(
+              `slot ${slot.slotId} の stageIndex が重複しています: ${st.stageIndex}`,
+              ref,
+            );
+          }
+          seenIdx.add(st.stageIndex);
+        }
       }
     }
     steps.set(st.journeyStepId as JourneyStepId, {

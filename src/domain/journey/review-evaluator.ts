@@ -48,8 +48,12 @@ export interface DiagnosticMetrics {
   readonly severityCorrectCount: number;
 }
 
-/** Gate 判断の妥当性（未解決 defect と gate の整合）。 */
-export type GateQuality = "sound" | "too-lenient" | "too-strict";
+/**
+ * Gate 判断の妥当性（未解決 defect と gate の整合）。
+ * RC6 P2: acknowledged-risk を追加。「実 defect を認識（catch）しつつ plain Approve で
+ * 無条件に通した」= problem-free ではない（sound と区別する）。
+ */
+export type GateQuality = "sound" | "too-lenient" | "too-strict" | "acknowledged-risk";
 
 export interface ReviewEvaluation {
   readonly artifactId: string;
@@ -91,6 +95,15 @@ export interface GateSignals {
 }
 
 /**
+ * RC6 P2: gate 判断に「認識済みだが未解決」の余地があるか。
+ * - plain `approve` で defect を catch した = 欠陥を認識しつつ無条件で通した（条件も差し戻しもなし）。
+ *   これは「problem-free に適切に Approve」ではない。sound とは呼ばない（acknowledged-risk 扱い）。
+ */
+function hasAcknowledgedButUnhandled(signals: GateSignals): boolean {
+  return signals.gate === "approve" && signals.caughtCount > 0;
+}
+
+/**
  * Gate 判断の妥当性を実 Ground Truth に基づいて決定的に判定する（FIX 2）。
  *
  * 判定の骨子:
@@ -117,6 +130,9 @@ export function judgeGateQuality(signals: GateSignals): GateQuality {
   if (passing) {
     if (gate === "approve" && missedCount > 0) return "too-lenient";
     if (gate === "approve-with-conditions" && missedHighCount > 0) return "too-lenient";
+    // RC6 P2: 実 defect を認識（catch）しつつ plain Approve で無条件に通した = problem-free ではない。
+    // 「認識したリスクを未解決のまま進めた」ことを sound と区別する（下流にリスクが残る）。
+    if (hasAcknowledgedButUnhandled(signals)) return "acknowledged-risk";
     return "sound";
   }
 
@@ -168,7 +184,13 @@ export function evaluateArtifactReview(
     if (item.reviewability !== "finding-candidate") continue;
 
     const defect = defectMap.get(item.itemId);
-    const isDefect = defect !== undefined;
+    // RC4 Integrity P1-1: finding の live 状態は Artifact の現在 contentState を single source とする。
+    // Ground Truth catalog に defect が存在しても、その slot が Rework で "corrected"（resolved）に
+    // なっていれば、それはもはや live defect ではない（未指摘でも missed にしない）。
+    // "partial"（remaining criteria 未達）と "defective"（未着手）は依然 live defect。
+    // これにより「artifact body は resolved なのに scorer は Ground Truth だけを見る」divergence を排除する。
+    const isResolvedInArtifact = item.contentState === "corrected";
+    const isDefect = defect !== undefined && !isResolvedInArtifact;
     const flaggedByUser = flagged.has(item.itemId);
     const userSeverity = flagged.get(item.itemId);
 

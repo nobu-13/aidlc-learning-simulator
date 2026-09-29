@@ -28,16 +28,15 @@ export function HomeView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.Elem
       : app.state.resumable !== undefined
         ? { scenario: app.state.resumable.scenario, progression: app.state.resumable.progression }
         : undefined;
+  // RC4 Final（STEP J）: Gym は「練習の場」。前回結果の弱点があれば推奨練習として提示する。
+  const weakDims = app.state.dashboard?.reviewDimensions ?? [];
   return (
-    <section aria-labelledby="home-h" className="home">
+    <section aria-labelledby="home-h" className="home gym-home">
       <div className="hero">
         <h1 id="home-h" className="home-title">
-          {t("app.title")}
+          {t("rc4.gym.home.title")}
         </h1>
-        <p className="home-tagline">{t("app.tagline")}</p>
-        <button className="primary cta" data-testid="start" onClick={() => app.goModeSelect()}>
-          {t("home.cta.start")}
-        </button>
+        <p className="home-tagline">{t("rc4.gym.home.tagline")}</p>
       </div>
 
       {resumable !== undefined && resumable.scenario !== undefined ? (
@@ -51,13 +50,44 @@ export function HomeView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.Elem
         </div>
       ) : null}
 
-      <div className="card">
-        <h2>{t("home.outcome.title")}</h2>
-        <p>{t("home.outcome.body")}</p>
+      {/* RC4 Final（STEP J）: 弱点領域からの推奨練習（前回結果由来）。 */}
+      {weakDims.length > 0 ? (
+        <div className="card" data-testid="gym-weak-areas">
+          <h2>{t("rc4.gym.weakAreas.title")}</h2>
+          <p className="muted">{t("rc4.gym.weakAreas.desc")}</p>
+          <p data-testid="gym-weak-dims">{weakDims.map((id) => t(`dimension.${id}`)).join(" · ")}</p>
+          <button className="primary" data-testid="gym-practice-weak" onClick={() => app.goPracticeLibrary()}>
+            {t("rc4.gym.weakAreas.cta")}
+          </button>
+        </div>
+      ) : null}
+
+      {/* Gym の中心 = practice / focus library（Home の mode 説明を再掲しない）。 */}
+      <div className="card-grid two">
+        <div className="card">
+          <h2>{t("home.practice.title")}</h2>
+          <p className="muted">{t("home.practice.desc")}</p>
+          <button className="primary" data-testid="practices" onClick={() => app.goPracticeLibrary()}>
+            {t("practice.nav.title")}
+          </button>
+        </div>
+        <div className="card">
+          <h2>{t("home.focus.title")}</h2>
+          <p className="muted">{t("home.focus.desc")}</p>
+          <button data-testid="focus" onClick={() => app.goFocusLibrary()}>
+            {t("nav.focus")}
+          </button>
+        </div>
       </div>
 
-      <div className="card">
-        <h2>{t("home.modes.title")}</h2>
+      {/* フル通し練習（core-e2e）は二次導線。mode 選択は scenario 実行のための入口として残す。 */}
+      <div className="card gym-fullrun" data-testid="gym-fullrun-card">
+        <h2>{t("rc4.gym.fullRun.title")}</h2>
+        <p className="muted">{t("rc4.gym.fullRun.desc")}</p>
+        <button className="secondary" data-testid="start" onClick={() => app.goModeSelect()}>
+          {t("rc4.gym.fullRun.cta")}
+        </button>
+        {/* mode 直接入口（既存フロー維持）。 */}
         <ul className="options card-grid">
           {MODES.map((mode) => (
             <li key={mode}>
@@ -75,33 +105,6 @@ export function HomeView(props: { app: AppApi; t: I18nResolver["t"] }): JSX.Elem
             </li>
           ))}
         </ul>
-      </div>
-
-      <div className="card">
-        <h2>{t("home.journey.title")}</h2>
-        <ol className="journey">
-          <li>{t("home.journey.step1")}</li>
-          <li>{t("home.journey.step2")}</li>
-          <li>{t("home.journey.step3")}</li>
-          <li>{t("home.journey.step4")}</li>
-        </ol>
-      </div>
-
-      <div className="card-grid two">
-        <div className="card">
-          <h2>{t("home.focus.title")}</h2>
-          <p className="muted">{t("home.focus.desc")}</p>
-          <button data-testid="focus" onClick={() => app.goFocusLibrary()}>
-            {t("nav.focus")}
-          </button>
-        </div>
-        <div className="card">
-          <h2>{t("home.practice.title")}</h2>
-          <p className="muted">{t("home.practice.desc")}</p>
-          <button data-testid="practices" onClick={() => app.goPracticeLibrary()}>
-            {t("practice.nav.title")}
-          </button>
-        </div>
       </div>
     </section>
   );
