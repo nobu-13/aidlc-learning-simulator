@@ -20,6 +20,13 @@ import type {
  * v3（RC3）: journey（RC3 Journey 状態）を追加。
  * v1 → v2 → v3 は「不足フィールドを空で補う」additive migration（既存 scenario 進捗を失わない）。
  * RC2 の in-progress scenario は RC3 Journey へ無理に変換しない（journey は空で開始）。
+ *
+ * RC4 architecture note: Phase 1 では PERSISTENCE_SCHEMA_VERSION = 3 の additive 変更
+ * （PersistedJourney.archetypeId を optional 追加）を許容している。
+ * ただし RC4 では Artifact generation semantics 自体が変わるため、旧 RC3 Journey state を
+ * 新 Engine で再開させると semantic consistency が保証できない可能性がある。
+ * RC4 production release requires an explicit persistence compatibility decision.
+ * （原則として Persistence v4 + RC3 state safe reset を採用する方向。Phase 1 では変更不要。）
  */
 export const PERSISTENCE_SCHEMA_VERSION = 3;
 
@@ -46,6 +53,8 @@ export type WorkshopInputs = Readonly<Record<string, string>>;
 export interface PersistedJourney {
   readonly mode: ExperienceMode;
   readonly profileId: string;
+  /** RC4: Project Archetype id（additive）。未指定の旧データは復元時に default 補完。 */
+  readonly archetypeId?: string | undefined;
   readonly currentStepId: string;
   readonly userAuthored: Readonly<Record<string, string>>;
   readonly structured: Readonly<Record<string, string>>;

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "archetypeId": "document-search",
+  "titleKey": "rc4.archetype.document-search.title",
+  "summaryKey": "rc4.archetype.document-search.summary",
+  "steps": [
+    {
+      "journeyStepId": "j1-requirements",
+      "titleKey": "rc4.ds.j1.title",
+      "summaryKey": "rc4.ds.j1.summary",
+      "provenanceKey": "rc4.ds.j1.pv",
+      "slots": [
+        { "slotId": "req-item-goal", "labelKey": "rc4.ds.j1.goal.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j1.goal.body" },
+        { "slotId": "req-item-valid", "labelKey": "rc4.ds.j1.valid.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j1.valid.body" },
+        { "slotId": "req-item-distractor", "labelKey": "rc4.ds.j1.distractor.label", "reviewability": "finding-candidate", "distractor": true, "baselineBodyKey": "rc4.ds.j1.distractor.body" },
+        { "slotId": "req-item-omission", "labelKey": "rc4.ds.j1.omission.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j1.omission.baseline", "defectId": "d-j1-req-omission", "defectiveBodyKey": "rc4.ds.j1.omission.defective", "correctedBodyKey": "rc4.ds.j1.omission.corrected", "changeSummaryKey": "rc4.ds.j1.omission.change" }
+      ]
+    },
+    {
+      "journeyStepId": "j2-acceptance-scope",
+      "titleKey": "rc4.ds.j2.title",
+      "summaryKey": "rc4.ds.j2.summary",
+      "slots": [
+        { "slotId": "ac-item-valid", "labelKey": "rc4.ds.j2.valid.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j2.valid.body" },
+        { "slotId": "ac-item-distractor", "labelKey": "rc4.ds.j2.distractor.label", "reviewability": "finding-candidate", "distractor": true, "baselineBodyKey": "rc4.ds.j2.distractor.body" },
+        { "slotId": "ac-item-mismatch", "labelKey": "rc4.ds.j2.mismatch.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j2.mismatch.baseline", "defectId": "d-j2-ac-mismatch", "defectiveBodyKey": "rc4.ds.j2.mismatch.defective", "correctedBodyKey": "rc4.ds.j2.mismatch.corrected", "changeSummaryKey": "rc4.ds.j2.mismatch.change" },
+        { "slotId": "ac-item-scope-creep", "labelKey": "rc4.ds.j2.scopeCreep.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j2.scopeCreep.baseline", "defectId": "d-j2-scope-creep", "defectiveBodyKey": "rc4.ds.j2.scopeCreep.defective", "correctedBodyKey": "rc4.ds.j2.scopeCreep.corrected", "changeSummaryKey": "rc4.ds.j2.scopeCreep.change" }
+      ]
+    },
+    {
+      "journeyStepId": "j3-design",
+      "titleKey": "rc4.ds.j3.title",
+      "summaryKey": "rc4.ds.j3.summary",
+      "slots": [
+        { "slotId": "design-item-fd-valid", "labelKey": "rc4.ds.j3.fdValid.label", "sectionId": "functional-domain", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j3.fdValid.body" },
+        { "slotId": "design-item-nfr-valid", "labelKey": "rc4.ds.j3.nfrValid.label", "sectionId": "nfr-architecture", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j3.nfrValid.body" },
+        { "slotId": "design-item-distractor", "labelKey": "rc4.ds.j3.distractor.label", "sectionId": "functional-domain", "reviewability": "finding-candidate", "distractor": true, "baselineBodyKey": "rc4.ds.j3.distractor.body" },
+        { "slotId": "design-item-missing-nfr", "labelKey": "rc4.ds.j3.missingNfr.label", "sectionId": "nfr-architecture", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j3.missingNfr.baseline", "defectId": "d-j3-missing-nfr", "defectiveBodyKey": "rc4.ds.j3.missingNfr.defective", "correctedBodyKey": "rc4.ds.j3.missingNfr.corrected", "changeSummaryKey": "rc4.ds.j3.missingNfr.change" },
+        { "slotId": "design-item-saas-logging", "labelKey": "rc4.ds.j3.saasLogging.label", "sectionId": "nfr-architecture", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j3.saasLogging.baseline", "defectId": "d-j3-security-violation", "defectiveBodyKey": "rc4.ds.j3.saasLogging.defective", "correctedBodyKey": "rc4.ds.j3.saasLogging.corrected", "changeSummaryKey": "rc4.ds.j3.saasLogging.change" },
+        { "slotId": "design-item-delegation", "labelKey": "rc4.ds.j3.delegation.label", "sectionId": "functional-domain", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j3.delegation.baseline", "defectId": "d-j3-unsafe-delegation", "defectiveBodyKey": "rc4.ds.j3.delegation.defective", "correctedBodyKey": "rc4.ds.j3.delegation.corrected", "changeSummaryKey": "rc4.ds.j3.delegation.change" }
+      ]
+    },
+    {
+      "journeyStepId": "j4-implementation-traceability",
+      "titleKey": "rc4.ds.j4.title",
+      "summaryKey": "rc4.ds.j4.summary",
+      "slots": [
+        { "slotId": "trace-item-valid", "labelKey": "rc4.ds.j4.valid.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j4.valid.body" },
+        { "slotId": "trace-item-distractor", "labelKey": "rc4.ds.j4.distractor.label", "reviewability": "finding-candidate", "distractor": true, "baselineBodyKey": "rc4.ds.j4.distractor.body" },
+        { "slotId": "trace-item-gap", "labelKey": "rc4.ds.j4.gap.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j4.gap.baseline", "defectId": "d-j4-trace-gap", "defectiveBodyKey": "rc4.ds.j4.gap.defective", "correctedBodyKey": "rc4.ds.j4.gap.corrected", "changeSummaryKey": "rc4.ds.j4.gap.change" }
+      ]
+    },
+    {
+      "journeyStepId": "j5-test-strategy",
+      "titleKey": "rc4.ds.j5.title",
+      "summaryKey": "rc4.ds.j5.summary",
+      "slots": [
+        { "slotId": "teststrat-item-valid", "labelKey": "rc4.ds.j5.valid.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j5.valid.body" },
+        { "slotId": "teststrat-item-coverage", "labelKey": "rc4.ds.j5.coverage.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j5.coverage.baseline", "defectId": "d-j5-missing-coverage", "defectiveBodyKey": "rc4.ds.j5.coverage.defective", "correctedBodyKey": "rc4.ds.j5.coverage.corrected", "changeSummaryKey": "rc4.ds.j5.coverage.change" }
+      ]
+    },
+    {
+      "journeyStepId": "j6-test-evidence",
+      "titleKey": "rc4.ds.j6.title",
+      "summaryKey": "rc4.ds.j6.summary",
+      "slots": [
+        { "slotId": "evidence-item-valid", "labelKey": "rc4.ds.j6.valid.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j6.valid.body" },
+        { "slotId": "evidence-item-distractor", "labelKey": "rc4.ds.j6.distractor.label", "reviewability": "finding-candidate", "distractor": true, "baselineBodyKey": "rc4.ds.j6.distractor.body" },
+        { "slotId": "evidence-item-insufficient", "labelKey": "rc4.ds.j6.insufficient.label", "reviewability": "finding-candidate", "baselineBodyKey": "rc4.ds.j6.insufficient.baseline", "defectId": "d-j6-insufficient-evidence", "defectiveBodyKey": "rc4.ds.j6.insufficient.defective", "correctedBodyKey": "rc4.ds.j6.insufficient.corrected", "changeSummaryKey": "rc4.ds.j6.insufficient.change" }
+      ]
+    }
+  ]
+}

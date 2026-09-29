@@ -48,6 +48,33 @@ export type JourneyStepKind =
   | "artifact-review" // J2–J6: Artifact を Review する
   | "approval"; // J7/J8: 承認判断
 
+// ---------- Project Archetype（RC4 Phase 1・Human Decision 1）----------
+
+/**
+ * Project Archetype（RC4）。Artifact 本文の語彙・slot 構成を決める（Design §7）。
+ * structured input（軸）とは直交する: archetype が「何のプロジェクトか（本文の題材）」を、
+ * structured が「その中の性質（defect 活性化・NFR 強度）」を決める。
+ * 4 種で確定（Human Decision 1）。runtime AI を使わず、JSON content template から本文を引く。
+ */
+export type ProjectArchetypeId =
+  | "internal-api-workflow" // A. Internal API / Workflow Application
+  | "document-search" // B. Document Search / Knowledge Retrieval
+  | "event-driven-processing" // C. Event-driven Processing
+  | "customer-facing-app"; // D. Customer-facing Business Application
+
+/** 4 Archetype の固定順序（決定的な UI 表示順・canonical source）。 */
+export const PROJECT_ARCHETYPE_IDS: readonly ProjectArchetypeId[] = [
+  "internal-api-workflow",
+  "document-search",
+  "event-driven-processing",
+  "customer-facing-app",
+] as const;
+
+/** ProjectArchetypeId の型ガード（永続復元・境界検証用）。 */
+export function isProjectArchetypeId(v: unknown): v is ProjectArchetypeId {
+  return typeof v === "string" && (PROJECT_ARCHETYPE_IDS as readonly string[]).includes(v);
+}
+
 // ---------- Structured control input（Ground Truth の源・Design §8）----------
 
 /**
@@ -124,8 +151,13 @@ export const USER_AUTHORED_FIELD_IDS: readonly UserAuthoredFieldId[] = [
   "notes",
 ] as const;
 
-/** Project Context（Setup）= 2 種入力の束。 */
+/** Project Context（Setup）= archetype + 2 種入力の束（RC4: archetype を additive 追加）。 */
 export interface ProjectContextInput {
+  /**
+   * Project Archetype（RC4 Phase 1）。Artifact 本文の題材を決める。
+   * additive: 未指定の永続データ復元時は default archetype で補完する（Human Decision 10）。
+   */
+  readonly archetypeId: ProjectArchetypeId;
   readonly userAuthored: Readonly<Partial<Record<UserAuthoredFieldId, string>>>;
   readonly structured: StructuredControlInput;
 }
@@ -180,6 +212,19 @@ export interface ArtifactItem {
    * 前段の見逃しがどの工程由来かを UI で示すための表示専用メタ。採点には使わない。
    */
   readonly originStepId?: JourneyStepId | undefined;
+  /**
+   * item 本文の内容状態（RC4 Phase 1）。同じ slot でも defect の未解決/解決で本文が変わることを表す。
+   * - baseline: defect と無関係な通常項目。
+   * - defective: defect が有効かつ未解決（欠陥のある本文）。
+   * - corrected: defect が Rework で解決済み（改善された本文）。
+   * 採点母集団の決定は reviewability が担う（contentState は本文選択と表示のためのメタ）。
+   */
+  readonly contentState?: "baseline" | "defective" | "corrected" | undefined;
+  /**
+   * 選択された本文 variant の識別子（RC4 Phase 1・Diff の突合キー）。
+   * content template の slot × variant を一意に指す。Phase 3 の Diff Engine が before/after を比較する。
+   */
+  readonly variantKey?: string | undefined;
 }
 
 /**
@@ -198,6 +243,25 @@ export interface GeneratedArtifact {
   readonly provenanceRefs: readonly string[];
   readonly revision: number;
   readonly status: ArtifactStatus;
+  /**
+   * この Artifact を生成した Archetype（RC4 Phase 1）。
+   * additive: RC3 経路（generateArtifact v1）でも context.archetypeId から埋まる。
+   */
+  readonly archetypeId: ProjectArchetypeId;
+  /** このリビジョンで解決済みの defect id（Rework で前進・RC4 Phase 1 は空配列が基本）。 */
+  readonly resolvedDefectIds: readonly string[];
+  /** このリビジョンで未解決の defect id（この step に有効な defect のうち未解決分）。 */
+  readonly unresolvedDefectIds: readonly string[];
+  /**
+   * 前リビジョンからの変更点 locale key（RC4 Phase 1 では defective→corrected になった slot の説明）。
+   * revision 0 では空。Phase 3 の Diff/変更サマリ表示が使う。
+   */
+  readonly changeSummaryKeys: readonly string[];
+  /**
+   * approve-with-conditions で保持された残存条件の locale key（RC4・Human Decision 3）。
+   * Phase 1 では常に空配列（Decision Semantics は後続 Phase）。additive に前方確保する。
+   */
+  readonly carriedConditionKeys: readonly string[];
 }
 
 // ---------- Defect ----------

@@ -15,7 +15,7 @@ import type {
   Severity,
   StructuredControlInput,
 } from "../domain/journey/journey-entities.ts";
-import { JOURNEY_STEP_IDS } from "../domain/journey/journey-entities.ts";
+import { JOURNEY_STEP_IDS, isProjectArchetypeId } from "../domain/journey/journey-entities.ts";
 import {
   buildArtifactForStep,
   computeJourneyResult,
@@ -30,6 +30,7 @@ import {
 import { buildDefectSet, defectsForStep } from "../domain/journey/defect-catalog.ts";
 import {
   CANONICAL_SAMPLE_PROFILE,
+  DEFAULT_ARCHETYPE_ID,
   buildUserProfile,
   defaultStructuredInput,
   type JourneyProfile,
@@ -220,6 +221,8 @@ function toPersistedJourney(s: JourneyState): PersistedJourney {
   return {
     mode: s.mode,
     profileId: s.profile.profileId,
+    // RC4: archetype を保存（復元時に本文題材を再現）。
+    archetypeId: s.profile.context.archetypeId,
     currentStepId: s.progress.currentStepId,
     userAuthored: { ...s.profile.context.userAuthored } as Record<string, string>,
     structured: { ...s.profile.context.structured } as unknown as Record<string, string>,
@@ -321,10 +324,19 @@ function restoreJourney(persisted: PersistedJourney): RestoredJourney | null {
   for (const k of Object.keys(persisted.structured)) {
     structured[k] = persisted.structured[k] as string;
   }
+  // RC4: archetype を復元（未指定/不正は default archetype で補完・Human Decision 10）。
+  const archetypeId = isProjectArchetypeId(persisted.archetypeId)
+    ? persisted.archetypeId
+    : DEFAULT_ARCHETYPE_ID;
   const profile =
     mode === "guided"
       ? CANONICAL_SAMPLE_PROFILE
-      : buildUserProfile("user", persisted.userAuthored, structured as unknown as StructuredControlInput);
+      : buildUserProfile(
+          "user",
+          persisted.userAuthored,
+          structured as unknown as StructuredControlInput,
+          archetypeId,
+        );
 
   // reviews を復元（gate / severity を型検証）。
   const reviews: Partial<Record<JourneyStepId, ArtifactReview>> = {};

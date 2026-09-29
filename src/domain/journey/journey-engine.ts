@@ -14,7 +14,9 @@ import type {
 } from "./journey-entities.ts";
 import { JOURNEY_STEP_IDS } from "./journey-entities.ts";
 import { buildDefectSet, defectsForStep } from "./defect-catalog.ts";
-import { generateArtifact } from "./artifact-generator.ts";
+import { generateArtifactV2 } from "./artifact-generator-v2.ts";
+import { loadArchetypeContentCatalog } from "../../content/index.ts";
+import type { ArchetypeContentCatalog } from "../../content/content-loader.ts";
 import { evaluateArtifactReview, type ReviewEvaluation } from "./review-evaluator.ts";
 import {
   approvalToDimensionContributions,
@@ -43,6 +45,16 @@ export interface JourneyRunInput {
   readonly releaseDecision?: ApprovalDecision | undefined;
   /** Release で Completion を混同したか（UI が「completion 通過を理由に無条件 release」を検出して渡す）。 */
   readonly releaseConflatedWithCompletion?: boolean | undefined;
+  /**
+   * 検証済み archetype content catalog（RC4）。省略時は build-time 同梱の catalog を使う。
+   * テストで in-memory の catalog を注入するために optional にする（決定性は catalog に閉じる）。
+   */
+  readonly contentCatalog?: ArchetypeContentCatalog | undefined;
+}
+
+/** input から content catalog を解決する（未指定なら同梱 catalog）。 */
+function catalogOf(input: JourneyRunInput): ArchetypeContentCatalog {
+  return input.contentCatalog ?? loadArchetypeContentCatalog();
 }
 
 /** 指定 step の Artifact を生成する（consequence 伝播は mode policy に従う）。 */
@@ -63,12 +75,13 @@ export function buildArtifactForStep(
       .map((c) => ({ manifestItemKey: c.manifestItemKey, sourceStepId: c.sourceStepId }));
   }
 
-  return generateArtifact({
+  return generateArtifactV2({
     stepId,
     profileId: input.profile.profileId,
     context: input.profile.context,
     defects,
     revision: revisionOf(input.progress, stepId),
+    contentCatalog: catalogOf(input),
     injectedConsequences,
   });
 }
@@ -85,12 +98,13 @@ function collectMissedDefectsBefore(
     if (JOURNEY_STEP_IDS.indexOf(s) >= targetIdx) break;
     const review = input.reviews[s];
     if (review === undefined) continue;
-    const artifact = generateArtifact({
+    const artifact = generateArtifactV2({
       stepId: s,
       profileId: input.profile.profileId,
       context: input.profile.context,
       defects,
       revision: revisionOf(input.progress, s),
+      contentCatalog: catalogOf(input),
     });
     const evalResult = evaluateArtifactReview(artifact, defects, review);
     for (const id of evalResult.missedItemIds) {
@@ -118,12 +132,13 @@ export function evaluateAllReviews(input: JourneyRunInput): readonly StepReviewE
   for (const stepId of JOURNEY_STEP_IDS) {
     const review = input.reviews[stepId];
     if (review === undefined) continue;
-    const artifact = generateArtifact({
+    const artifact = generateArtifactV2({
       stepId,
       profileId: input.profile.profileId,
       context: input.profile.context,
       defects,
       revision: revisionOf(input.progress, stepId),
+      contentCatalog: catalogOf(input),
     });
     out.push({ stepId, evaluation: evaluateArtifactReview(artifact, defects, review) });
   }
