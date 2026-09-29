@@ -66,7 +66,21 @@ export interface PersistedJourney {
     readonly action: string;
     readonly trigger: string;
     readonly atRevision: number;
+    /** RC4 Phase 2: additive。Return で指定された実 defect id。 */
+    readonly targetedDefectIds?: readonly string[] | undefined;
+    /** RC4 Phase 2: additive。解決済みスナップショット。 */
+    readonly resolvedDefectIds?: readonly string[] | undefined;
+    /** RC4 Phase 2: additive。残存 defect id。 */
+    readonly remainingDefectIds?: readonly string[] | undefined;
+    /** RC4 Phase 2 修正: additive。no-op rework 試行（revision を進めなかった）フラグ。 */
+    readonly isNoOpAttempt?: boolean | undefined;
   }[];
+  /**
+   * RC4 Phase 2: step id → 解決済み defect id 集合（additive）。
+   * reload / Resume 後に corrected Artifact が defective へ戻らないために保存する。
+   * 未指定の旧データは空（= RC3 と同じ全未解決挙動）。
+   */
+  readonly resolvedDefectIds?: Readonly<Record<string, readonly string[]>> | undefined;
   readonly reviews: Readonly<
     Record<
       string,

@@ -17,6 +17,10 @@ const jaCommon: LocaleBundle = {
   "rc4.archetype.event-driven-processing.summary": "キューからイベントを受け取り非同期に処理するシステム。",
   "rc4.archetype.customer-facing-app.title": "顧客向け業務アプリケーション",
   "rc4.archetype.customer-facing-app.summary": "顧客が直接利用する Web アプリケーション。",
+  // RC4 Phase 2: Rework 後の Agent 修正 guidance。
+  "rc4.revision.agentRevised": "Agent が Return 判断に基づき Artifact を修正しました。",
+  "rc4.revision.agentRevised.guided":
+    "修正対象の項目は改善された内容に置き換わっています。もう一度レビューしてください。",
 };
 
 const enCommon: LocaleBundle = {
@@ -28,6 +32,10 @@ const enCommon: LocaleBundle = {
   "rc4.archetype.event-driven-processing.summary": "A system that consumes events from a queue and processes them asynchronously.",
   "rc4.archetype.customer-facing-app.title": "Customer-facing Business Application",
   "rc4.archetype.customer-facing-app.summary": "A web application used directly by customers.",
+  // RC4 Phase 2: agent-revised guidance shown after rework.
+  "rc4.revision.agentRevised": "The agent has revised the artifact based on your return decision.",
+  "rc4.revision.agentRevised.guided":
+    "The targeted items have been replaced with improved content. Please review it again.",
 };
 
 // ------------------------------------------------------------------

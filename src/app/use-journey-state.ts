@@ -193,6 +193,35 @@ export interface JourneyApi {
   exit(): void;
 }
 
+/**
+ * RC4 Phase 2: Return for Rework の「修正対象実 defect id」を決定的に導く。
+ *
+ * 戻る step の submit 済み review を、その step の現在 Artifact に対して評価し、
+ * caught（= Ground Truth 上 defect を正しく指摘）した項目の defectId を返す。
+ * - false positive（defect でない項目の指摘）は caughtItemIds に入らないため対象外（要件）。
+ * - 未選択の defect は caught にならないため未解決のまま（部分 rework・要件）。
+ * - review が無い（mandatory rework で feedback から直接戻る等）場合でも、submit 済み review が
+ *   state.reviews[stepId] にあることが前提。無ければ空（no-op = 本文は変わらないが revision は進む）。
+ */
+function computeReworkTargets(state: JourneyState, stepId: JourneyStepId): readonly string[] {
+  const review = state.reviews[stepId];
+  if (review === undefined) return [];
+  const defects = buildDefectSet(state.profile.context.structured, state.profile.profileDefectRules);
+  const artifact = buildArtifactForStep(currentRunInput(state), stepId);
+  // review の artifactId が現在の artifact と一致しないと evaluateArtifactReview は reject するため、
+  // identity 不一致（revision ずれ）のときは安全に no-op。
+  if (review.artifactId !== artifact.artifactId) return [];
+  const evaluation = evaluateArtifactReview(artifact, defects, review);
+  const stepDefects = defectsForStep(defects, stepId);
+  const byItemId = new Map(stepDefects.map((d) => [d.itemId, d.defectId]));
+  const targets: string[] = [];
+  for (const itemId of evaluation.caughtItemIds) {
+    const defectId = byItemId.get(itemId);
+    if (defectId !== undefined) targets.push(defectId);
+  }
+  return targets;
+}
+
 function currentRunInput(state: JourneyState): JourneyRunInput {
   return {
     profile: state.profile,
@@ -234,7 +263,14 @@ function toPersistedJourney(s: JourneyState): PersistedJourney {
       action: e.action,
       trigger: e.trigger,
       atRevision: e.atRevision,
+      // RC4 Phase 2: defect 単位の記録を additive 保存。
+      ...(e.targetedDefectIds !== undefined ? { targetedDefectIds: [...e.targetedDefectIds] } : {}),
+      ...(e.resolvedDefectIds !== undefined ? { resolvedDefectIds: [...e.resolvedDefectIds] } : {}),
+      ...(e.remainingDefectIds !== undefined ? { remainingDefectIds: [...e.remainingDefectIds] } : {}),
+      ...(e.isNoOpAttempt !== undefined ? { isNoOpAttempt: e.isNoOpAttempt } : {}),
     })),
+    // RC4 Phase 2: 解決済み defect（step → id[]）を保存。reload/Resume で corrected を維持。
+    resolvedDefectIds: serializeResolvedDefectIds(s.progress.resolvedDefectIds),
     reviews,
     ...(s.completionDecision !== undefined ? { completionDecision: s.completionDecision } : {}),
     ...(s.releaseDecision !== undefined ? { releaseDecision: s.releaseDecision } : {}),
@@ -263,6 +299,18 @@ function toPersistedJourney(s: JourneyState): PersistedJourney {
     // G1: 未 submit の Review 下書き。
     reviewDrafts: serializeReviewDrafts(s.reviewDrafts),
   };
+}
+
+/** JourneyProgress.resolvedDefectIds → Persisted 形（plain record・stable id のみ）。 */
+function serializeResolvedDefectIds(
+  resolved: Readonly<Record<string, readonly string[]>>,
+): Readonly<Record<string, readonly string[]>> {
+  const out: Record<string, readonly string[]> = {};
+  for (const k of Object.keys(resolved)) {
+    const v = resolved[k];
+    if (v !== undefined && v.length > 0) out[k] = [...v];
+  }
+  return out;
 }
 
 /** JourneyState.reviewDrafts → Persisted 形（stable id のみ）。 */
@@ -377,8 +425,15 @@ function restoreJourney(persisted: PersistedJourney): RestoredJourney | null {
       action: e.action as JourneyProgress["reworkHistory"][number]["action"],
       trigger: e.trigger as JourneyProgress["reworkHistory"][number]["trigger"],
       atRevision: e.atRevision,
+      // RC4 Phase 2: defect 単位の記録を復元（additive・missing は undefined のまま）。
+      ...(Array.isArray(e.targetedDefectIds) ? { targetedDefectIds: [...e.targetedDefectIds] } : {}),
+      ...(Array.isArray(e.resolvedDefectIds) ? { resolvedDefectIds: [...e.resolvedDefectIds] } : {}),
+      ...(Array.isArray(e.remainingDefectIds) ? { remainingDefectIds: [...e.remainingDefectIds] } : {}),
+      ...(typeof e.isNoOpAttempt === "boolean" ? { isNoOpAttempt: e.isNoOpAttempt } : {}),
     })),
     completedStepIds,
+    // RC4 Phase 2: 解決済み defect を復元（missing/不正 = 空 = RC3 挙動）。
+    resolvedDefectIds: restoreResolvedDefectIds(persisted.resolvedDefectIds),
   };
 
   // F1: Setup 下書きを復元（safe default）。
@@ -456,6 +511,22 @@ function restoreStructured(v: Readonly<Record<string, string>> | undefined): Str
   const out: Record<string, string> = { ...base };
   if (v !== undefined) for (const k of Object.keys(v)) if (k in base) out[k] = v[k] as string;
   return out as unknown as StructuredControlInput;
+}
+
+/** persisted resolvedDefectIds を復元（missing/不正 = 空）。string 配列値のみ受理。 */
+function restoreResolvedDefectIds(
+  v: Readonly<Record<string, readonly string[]>> | undefined,
+): Readonly<Record<string, readonly string[]>> {
+  if (v === undefined || typeof v !== "object") return {};
+  const out: Record<string, readonly string[]> = {};
+  for (const k of Object.keys(v)) {
+    const arr = v[k];
+    if (Array.isArray(arr)) {
+      const ids = arr.filter((x): x is string => typeof x === "string");
+      if (ids.length > 0) out[k] = ids;
+    }
+  }
+  return out;
 }
 
 /** persisted learningHistory を復元（missing/不正 = empty）。 */
@@ -727,8 +798,14 @@ export function useJourneyState(app: Application): JourneyApi {
   const reworkTo = useCallback(
     (stepId: JourneyStepId, trigger: ReworkTrigger) => {
       update((s) => {
-        const progress = rework(s.progress, stepId, "return", trigger);
-        // 戻った step の review はクリアして再レビューさせる。
+        // RC4 Phase 2: Return で「修正対象として指定された実 defect」を resolved へ前進させる。
+        // rework target = 戻る step の submit 済み review で「実 defect を正しく指摘（caught）」した defect id。
+        // - false positive（defect でない項目の指摘）は caughtItemIds に入らない → resolved にならない。
+        // - 未選択の defect は caught にならない → 未解決のまま残る（部分 rework）。
+        const targetedDefectIds = computeReworkTargets(s, stepId);
+
+        const progress = rework(s.progress, stepId, "return", trigger, targetedDefectIds);
+        // 戻った step の review はクリアして再レビューさせる（corrected 本文を新規に再評価）。
         const reviews = { ...s.reviews };
         const reviewDrafts = { ...s.reviewDrafts };
         for (const id of JOURNEY_STEP_IDS) {
@@ -751,7 +828,9 @@ export function useJourneyState(app: Application): JourneyApi {
         if (decision === "return") {
           // Return → 直近の review 工程（J6 等）へ rework。Release へは進めない。
           const target: JourneyStepId = "j6-test-evidence";
-          const progress = rework(s.progress, target, "return", "approval-prerequisite-changed");
+          // RC4 Phase 2: J6 の caught defect を解決対象へ（review が残っていれば）。
+          const targetedDefectIds = computeReworkTargets(s, target);
+          const progress = rework(s.progress, target, "return", "approval-prerequisite-changed", targetedDefectIds);
           const reviews = { ...s.reviews };
           const reviewDrafts = { ...s.reviewDrafts };
           for (const id of JOURNEY_STEP_IDS) {

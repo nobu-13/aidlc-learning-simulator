@@ -31,7 +31,7 @@ import {
 import { foldJourneyContributions, type JourneyDimensionOutcome } from "./journey-result.ts";
 import { journeyModePolicyFor } from "./mode-policy.ts";
 import type { JourneyProfile } from "./journey-profiles.ts";
-import { revisionOf, type JourneyProgress } from "./rework-state-machine.ts";
+import { revisionOf, resolvedDefectIdsOf, type JourneyProgress } from "./rework-state-machine.ts";
 
 /** Journey 実行の入力。 */
 export interface JourneyRunInput {
@@ -55,6 +55,28 @@ export interface JourneyRunInput {
 /** input から content catalog を解決する（未指定なら同梱 catalog）。 */
 function catalogOf(input: JourneyRunInput): ArchetypeContentCatalog {
   return input.contentCatalog ?? loadArchetypeContentCatalog();
+}
+
+/**
+ * 指定 step の「直前 revision 時点で解決済みだった defect id」を rework 履歴から決定的に導く（RC4 Phase 2）。
+ * 現在の resolvedDefectIds から「最後にその step を対象にした Return で追加された分」を除いた集合。
+ * これにより changeSummaryKeys が「今回の Return で corrected になった slot」だけを指す。
+ * 履歴に該当 Return が無ければ空（= 全 resolved が「今回分」扱いだが、Phase 2 の acceptance は本文変化で足りる）。
+ */
+function previouslyResolvedForStep(
+  progress: JourneyProgress,
+  stepId: JourneyStepId,
+): readonly string[] {
+  const current = new Set(resolvedDefectIdsOf(progress, stepId));
+  // 最後にこの step を対象にした rework entry を探す。
+  let lastTargeted: readonly string[] | undefined;
+  for (const e of progress.reworkHistory) {
+    if (e.toStepId === stepId) lastTargeted = e.targetedDefectIds ?? [];
+  }
+  if (lastTargeted === undefined) return [...current];
+  const prev = new Set(current);
+  for (const id of lastTargeted) prev.delete(id);
+  return [...prev];
 }
 
 /** 指定 step の Artifact を生成する（consequence 伝播は mode policy に従う）。 */
@@ -82,6 +104,8 @@ export function buildArtifactForStep(
     defects,
     revision: revisionOf(input.progress, stepId),
     contentCatalog: catalogOf(input),
+    resolvedDefectIds: resolvedDefectIdsOf(input.progress, stepId),
+    previouslyResolvedDefectIds: previouslyResolvedForStep(input.progress, stepId),
     injectedConsequences,
   });
 }
@@ -105,6 +129,8 @@ function collectMissedDefectsBefore(
       defects,
       revision: revisionOf(input.progress, s),
       contentCatalog: catalogOf(input),
+      resolvedDefectIds: resolvedDefectIdsOf(input.progress, s),
+      previouslyResolvedDefectIds: previouslyResolvedForStep(input.progress, s),
     });
     const evalResult = evaluateArtifactReview(artifact, defects, review);
     for (const id of evalResult.missedItemIds) {
@@ -139,6 +165,8 @@ export function evaluateAllReviews(input: JourneyRunInput): readonly StepReviewE
       defects,
       revision: revisionOf(input.progress, stepId),
       contentCatalog: catalogOf(input),
+      resolvedDefectIds: resolvedDefectIdsOf(input.progress, stepId),
+      previouslyResolvedDefectIds: previouslyResolvedForStep(input.progress, stepId),
     });
     out.push({ stepId, evaluation: evaluateArtifactReview(artifact, defects, review) });
   }

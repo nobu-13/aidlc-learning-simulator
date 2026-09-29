@@ -86,7 +86,8 @@ describe("P1-4 — navigation vs rework separation (domain)", () => {
     let p = initialProgress();
     // advance で j1 完了扱いにするのは engine 外なので、ここでは rework の効果だけ検証。
     const before = { rev: p.revisions["j1-requirements"] ?? 0, completed: [...p.completedStepIds] };
-    p = rework(p, "j1-requirements", "return", "requirement-changed");
+    // RC4 Phase 2: revision は valid target 解決（content change）時のみ増える。
+    p = rework(p, "j1-requirements", "return", "requirement-changed", ["d-j1-req-omission"]);
     expect((p.revisions["j1-requirements"] ?? 0)).toBe(before.rev + 1);
     expect(p.reworkHistory.length).toBe(1);
   });

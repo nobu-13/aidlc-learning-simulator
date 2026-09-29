@@ -230,7 +230,8 @@ describe("Rework state machine", () => {
     expect(p.currentStepId).toBe("j3-design");
 
     // j3 で critical finding -> j1 へ return。
-    p = rework(p, "j1-requirements", "return", "critical-finding");
+    // RC4 Phase 2: revision は content change（valid target 解決）時のみ増える → valid target を渡す。
+    p = rework(p, "j1-requirements", "return", "critical-finding", ["d-j1-req-omission"]);
     expect(p.currentStepId).toBe("j1-requirements");
     expect(revisionOf(p, "j1-requirements")).toBe(1);
     // j1 以降の completed は取り消される。
@@ -438,7 +439,8 @@ describe("FIX 3 — artifact identity + revision integrity", () => {
     let p = initialProgress();
     p = advance(p);
     p = advance(p); // at j3
-    p = rework(p, "j1-requirements", "return", "critical-finding");
+    // RC4 Phase 2: valid target 解決で revision++（Artifact Version 変化）。
+    p = rework(p, "j1-requirements", "return", "critical-finding", ["d-j1-req-omission"]);
     expect(revisionOf(p, "j1-requirements")).toBe(1);
     // r1 の artifactId は r0 と異なる。
     const inputR0: JourneyRunInput = { profile: buildUserProfile("t", {}, HEAVY_INPUT), mode: "simulation", progress: initialProgress(), reviews: {} };
@@ -456,7 +458,7 @@ describe("FIX 3 — artifact identity + revision integrity", () => {
     const r0Review: ArtifactReview = { artifactId: r0Artifact.artifactId, journeyStepId: "j1-requirements", findings: [], gateDecision: "approve" };
 
     let p = initialProgress();
-    p = rework(p, "j1-requirements", "return", "critical-finding"); // r1
+    p = rework(p, "j1-requirements", "return", "critical-finding", ["d-j1-req-omission"]); // r1
     const r1Input: JourneyRunInput = { profile, mode: "simulation", progress: p, reviews: {} };
     const r1Artifact = buildArtifactForStep(r1Input, "j1-requirements");
     expect(() => evaluateArtifactReview(r1Artifact, defects, r0Review)).toThrow();
@@ -474,7 +476,7 @@ describe("FIX 3 — artifact identity + revision integrity", () => {
   it("7. after rework, only current-revision review is evaluated (engine uses current revision)", () => {
     const profile = buildUserProfile("t", {}, HEAVY_INPUT);
     let p = initialProgress();
-    p = rework(p, "j1-requirements", "return", "requirement-changed"); // j1 -> r1
+    p = rework(p, "j1-requirements", "return", "requirement-changed", ["d-j1-req-omission"]); // j1 -> r1
     // 現在 revision (r1) の artifact に対する review を用意すれば評価される。
     const input: JourneyRunInput = { profile, mode: "simulation", progress: p, reviews: {} };
     const r1Artifact = buildArtifactForStep(input, "j1-requirements");
