@@ -117,3 +117,7 @@ evidence/hackathon/01-kiro-aws-mcp-connection.png
 .kiro/tools/
 .kiro/settings/
 .kiro/steering/aidlc-active-memory.md
+
+# Private evidence — internal metrics, article/LT planning, audit history, and
+# Community Builders application notes. Intentionally NEVER committed or published.
+/private/
