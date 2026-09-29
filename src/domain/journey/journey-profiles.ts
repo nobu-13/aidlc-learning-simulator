@@ -6,9 +6,16 @@
 import type { DefectRule } from "./defect-catalog.ts";
 import {
   STRUCTURED_INPUT_FIELD_IDS,
+  type ProjectArchetypeId,
   type ProjectContextInput,
   type StructuredControlInput,
 } from "./journey-entities.ts";
+
+/**
+ * default archetype（RC4）。RC3 canonical は「社内向け業務アプリ」題材だったので、
+ * 未指定時の安全既定として internal-api-workflow を用いる（Human Decision 10）。
+ */
+export const DEFAULT_ARCHETYPE_ID: ProjectArchetypeId = "internal-api-workflow";
 
 /** Journey の 1 Profile（Ground Truth の源となる structured input + user 引用テキスト）。 */
 export interface JourneyProfile {
@@ -51,6 +58,7 @@ export const CANONICAL_SAMPLE_PROFILE: JourneyProfile = {
   // canonical は固定 prefix + structured identity で安定 & 一意。
   profileId: `sample-canonical__${deriveProfileIdentity(CANONICAL_STRUCTURED)}`,
   context: {
+    archetypeId: DEFAULT_ARCHETYPE_ID,
     userAuthored: {
       goal: "rc3.sample.goal",
       projectContext: "rc3.sample.context",
@@ -74,13 +82,14 @@ export function buildUserProfile(
   kind: string,
   userAuthored: ProjectContextInput["userAuthored"],
   structured: StructuredControlInput,
+  archetypeId: ProjectArchetypeId = DEFAULT_ARCHETYPE_ID,
 ): JourneyProfile {
-  // profileId は structured identity から決定的に導く（FIX 3）。
-  // 異なる Project（structured 差）は異なる profileId → artifactId が collision しない。
+  // profileId は structured identity + archetype から決定的に導く（FIX 3 + RC4）。
+  // 異なる Project（structured / archetype 差）は異なる profileId → artifactId が collision しない。
   // user-authored 自由文は identity に含めない（safe）。
   return {
-    profileId: `${kind}__${deriveProfileIdentity(structured)}`,
-    context: { userAuthored, structured },
+    profileId: `${kind}__${archetypeId}__${deriveProfileIdentity(structured)}`,
+    context: { archetypeId, userAuthored, structured },
     profileDefectRules: [],
   };
 }

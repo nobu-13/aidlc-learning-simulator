@@ -1,6 +1,7 @@
 // アプリ chrome（Scenario 非依存）の locale bundle。ja/en で同一 key 集合を持つ（FR10.4）。
 // Scenario 固有の文言（titleKey/promptKey/labelKey 等）は Scenario JSON の localeBundles で供給する。
 import type { LocaleBundle } from "./locale-resources.ts";
+import { rc4ContentJa, rc4ContentEn } from "./rc4-content.ts";
 
 export const ja: LocaleBundle = {
   "app.title": "AI-DLC 学習シミュレーター",
@@ -1081,4 +1082,9 @@ export const en: LocaleBundle = {
   "rc3.sample.constraints": "Do not send personal information to external services.",
 };
 
-export const chromeBundles: Readonly<Record<"ja" | "en", LocaleBundle>> = { ja, en };
+// RC4: archetype content の locale key を chrome バンドルへ合成する（ja/en 対称）。
+// data/logic 分離のため content 本文は rc4-content.ts に置き、ここで束ねる。
+export const chromeBundles: Readonly<Record<"ja" | "en", LocaleBundle>> = {
+  ja: { ...ja, ...rc4ContentJa },
+  en: { ...en, ...rc4ContentEn },
+};

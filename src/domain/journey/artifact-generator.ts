@@ -1,9 +1,14 @@
-// ArtifactGenerator — structured input + Journey Step + Profile から Artifact を決定的に生成する
+// ArtifactGenerator (v1) — structured input + Journey Step + Profile から Artifact を決定的に生成する
 // （Design §3 / §7 / 要件 7）。random / time 禁止。同一入力 → 同一 Artifact。
 //
 // 各 step は「常に出す valid 項目」＋「distractor（罠だが valid）」＋「有効な defect に対応する項目」で構成。
 // defect が 1 件も無い step は clean artifact になる（要件 7: 必ず finding があると学習させない）。
 // user-authored 自由文は quote のみ（semantic 生成に使わない・Design §8）。
+//
+// RC4 architecture note: RC4 では artifact-generator-v2.ts（archetype content template 由来の可変本文）が
+// 主経路になり、journey-engine は v2 を呼ぶ。この v1 は Phase 1 では後方互換のため残している
+// （本文は revision 非依存の RC3 挙動のまま）。RC4 finalization 時に「v1 を retire するか / 明示的に
+// compatibility boundary として保持するか」を Human Decision として再評価する。Phase 2 で勝手に削除しない。
 import type {
   ArtifactItem,
   ArtifactKind,
@@ -203,6 +208,10 @@ export function generateArtifact(args: GenerateArtifactArgs): GeneratedArtifact 
     });
   });
 
+  // RC4: GeneratedArtifact の additive フィールドを後方互換で埋める。
+  // v1 は revision を本文に反映しないため resolved/change は空、unresolved はこの step の有効 defect 全て。
+  const stepDefectIds = stepDefects.map((d) => d.defectId);
+
   return {
     // artifact identity: profile + step + revision（FIX 3）。異なる Project は異なる id。
     artifactId: `art__${profileId}__${stepId}__r${revision}`,
@@ -215,5 +224,11 @@ export function generateArtifact(args: GenerateArtifactArgs): GeneratedArtifact 
     provenanceRefs: [`rc3.pv.${stepId}`],
     revision,
     status: "under-review",
+    // RC4 additive: v1 は context.archetypeId をそのまま反映（本文は v1 のまま）。
+    archetypeId: context.archetypeId,
+    resolvedDefectIds: [],
+    unresolvedDefectIds: stepDefectIds,
+    changeSummaryKeys: [],
+    carriedConditionKeys: [],
   };
 }

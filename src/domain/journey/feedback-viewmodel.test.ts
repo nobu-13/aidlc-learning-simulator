@@ -41,12 +41,14 @@ describe("Feedback view model — no internal IDs (P1-1 H2/H4)", () => {
     const vm = buildFeedbackViewModel(art, defects, ev);
     const all = [...vm.caught, ...vm.missed, ...vm.falsePositives];
     for (const f of all) {
-      // すべて locale key（rc3.item.* / rc3.defect.*）または undefined。生 ID や artifactId を含まない。
+      // すべて locale key（rc3.* / rc4.* content template）または undefined。生 ID や artifactId を含まない。
+      // RC4: item 本文は archetype content template（rc4.*）由来になった。internal ID 非露出は維持。
       expect(f.itemTitleKey).not.toContain(art.artifactId);
       expect(f.itemTitleKey).not.toMatch(/^art__/);
       expect(f.itemTitleKey).not.toMatch(/^d-j/); // defectId prefix
-      expect(f.itemTitleKey.startsWith("rc3.")).toBe(true);
-      expect(f.itemBodyKey.startsWith("rc3.")).toBe(true);
+      const isLocaleKey = (k: string): boolean => k.startsWith("rc3.") || k.startsWith("rc4.");
+      expect(isLocaleKey(f.itemTitleKey)).toBe(true);
+      expect(isLocaleKey(f.itemBodyKey)).toBe(true);
     }
   });
 
