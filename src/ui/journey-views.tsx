@@ -598,7 +598,13 @@ export function JourneyFeedbackView(props: { journey: JourneyApi; t: T }): JSX.E
         </div>
       ) : (
         <div className="feedback-actions">
-          {policy.assistedRework ? (
+          {/*
+            Rework 導線（全 mode 共通）:
+            - Guided: assistedRework=true で常に optional rework を提示。
+            - 全 mode: ユーザーが Return for Rework を選び（gate=return-for-rework）実 defect を指摘（caught>0）した
+              場合は、その Return 判断に応答して Agent rework へ進める導線を出す（fake logic ではなく Decision に応答）。
+          */}
+          {policy.assistedRework || (ev.gateDecision === "return-for-rework" && ev.caughtItemIds.length > 0) ? (
             <button
               className="secondary"
               data-testid="feedback-rework-optional"
@@ -960,14 +966,25 @@ function RevisionBanner(props: {
 }): JSX.Element | null {
   const { journey, stepId, revision, t } = props;
   if (revision <= 0) return null;
-  // この step への直近 rework entry（reason / from）を探す。
+  // この step への直近の「実 revision を進めた」rework entry（reason / from）を探す。
+  // no-op attempt（isNoOpAttempt=true）は revision を進めないため除外する（表示の一貫性）。
   const history = journey.state.progress.reworkHistory;
-  const last = [...history].reverse().find((e) => e.toStepId === stepId);
+  const last = [...history].reverse().find((e) => e.toStepId === stepId && e.isNoOpAttempt !== true);
+  // RC4 Phase 2: この step で解決済みの defect 件数（Agent が実際に修正した数）。
+  const resolvedCount = (journey.state.progress.resolvedDefectIds[stepId] ?? []).length;
+  const isGuided = journey.state.mode === "guided";
   return (
     <div className="card revision-banner" data-testid="revision-banner">
       <strong data-testid="revision-label">
         {t("rc3.revision.label")} {revision}
       </strong>
+      {/* RC4 Phase 2: Agent が Return 判断に基づき Artifact を修正した旨（本文は既に corrected へ差し替わっている）。 */}
+      {resolvedCount > 0 ? (
+        <p data-testid="revision-agent-revised">
+          {t("rc4.revision.agentRevised")}
+          {isGuided ? <span className="muted"> {t("rc4.revision.agentRevised.guided")}</span> : null}
+        </p>
+      ) : null}
       {last !== undefined ? (
         <ul className="muted">
           <li>

@@ -180,8 +180,9 @@ describe("P2-2 revision visible", () => {
     const user = userEvent.setup();
     render(<App application={makeApp()} />);
     await user.click(screen.getByTestId("journey-start-guided"));
-    // J1 で approve → feedback。Guided は assisted rework ボタンあり。
-    await submitReview(user, { gate: "approve" });
+    // J1 で実 defect（req-item-omission）を指摘して feedback へ。Guided は assisted rework ボタンあり。
+    // RC4 Phase 2: revision は valid target 解決時のみ増えるため、実 defect を指摘してから rework する。
+    await submitReview(user, { gate: "return-for-rework", flag: ["req-item-omission"] });
     // feedback から rework（optional）を押して J1 を revise。
     const rework = screen.queryByTestId("feedback-rework-optional") ?? screen.queryByTestId("feedback-rework");
     expect(rework).not.toBeNull();
